@@ -9,12 +9,14 @@
         "start": "node dist/server.js"
     },
     "dependencies": {
+        "@supabase/supabase-js": "^2.95.3",
         "dotenv": "^16.4.5",
-        "fastify": "^4.26.0"
+        "fastify": "^4.26.0",
+        "fastify-plugin": "^5.1.0"
     },
     "devDependencies": {
-        "@types/node": "^20.19.27",
+        "@types/node": "^20.19.32",
         "ts-node-dev": "^2.0.0",
-        "typescript": "^5.3.3"
+        "typescript": "^5.9.3"
     }
 }
