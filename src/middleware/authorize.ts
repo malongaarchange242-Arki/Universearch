@@ -5,11 +5,6 @@ import { incCounter, recordTiming } from './metrics';
  * Middleware `authorize(allowedRoles)`
  * - Vérifie que `request.user` existe (doit être précédé par `authenticate`)
  * - Vérifie que `request.user.role` fait partie des `allowedRoles`
-<<<<<<< HEAD
- * - Retourne 403 si rôle non autorisé
- */
-const SUPPORTED_ROLES = new Set(['superviseur', 'admin', 'universite', 'bde', 'utilisateur']);
-=======
  * - Pour les universités et centres de formation: vérifie que le statut est APPROVED
  * - Retourne 403 si rôle non autorisé ou statut non approuvé
  */
@@ -19,7 +14,6 @@ const SUPPORTED_ROLES = new Set(['superviseur', 'admin', 'universite', 'bde', 'u
  * Rôles qui nécessitent une vérification de statut APPROVED
  */
 const ROLES_REQUIRING_APPROVAL = new Set(['universite', 'centre_formation']);
->>>>>>> 99dc8c3 (Initial commit - identity service)
 
 export const authorize = (allowedRoles: string[]) => {
   const allowedSet = new Set(allowedRoles);
@@ -54,8 +48,6 @@ export const authorize = (allowedRoles: string[]) => {
         return reply.status(403).send({ error: 'Forbidden: insufficient privileges' });
       }
 
-<<<<<<< HEAD
-=======
       // 🔐 Vérification du statut APPROVED pour universités et centres de formation
       if (ROLES_REQUIRING_APPROVAL.has(role)) {
         try {
@@ -99,8 +91,6 @@ export const authorize = (allowedRoles: string[]) => {
           });
         }
       }
-
->>>>>>> 99dc8c3 (Initial commit - identity service)
       incCounter('authorize.success');
       request.log?.info({ userId: (request.user as any).id, role }, 'authorize: success');
       return;

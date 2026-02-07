@@ -11,7 +11,6 @@ const admin_routes_1 = require("./modules/admin/admin.routes");
 const universites_routes_1 = require("./modules/universites/universites.routes");
 const centres_routes_1 = require("./modules/centres-formation/centres.routes");
 const supabase_1 = __importDefault(require("./plugins/supabase"));
-// authPlugin is intentionally not registered because authentication is handled by middleware
 /**
  * Instance principale de l'application Fastify.
  * Ce fichier ne démarre pas le serveur.

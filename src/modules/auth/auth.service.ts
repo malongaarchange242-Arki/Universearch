@@ -1,14 +1,10 @@
-<<<<<<< HEAD
-=======
 // src/modules/auth/auth.service.ts
->>>>>>> 99dc8c3 (Initial commit - identity service)
+
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface RegisterPayload {
   email: string;
   password: string;
-<<<<<<< HEAD
-=======
   nom: string;
   prenom?: string | null;
   telephone: string;
@@ -22,7 +18,6 @@ export interface RegisterPayload {
   userType?: 'bachelier' | 'etudiant' | 'parent';
   dateNaissance?: string;
   genre?: string;
->>>>>>> 99dc8c3 (Initial commit - identity service)
 }
 
 export interface LoginPayload {
@@ -42,37 +37,12 @@ export interface LoginResult {
 }
 
 /**
-<<<<<<< HEAD
- * Crée uniquement le compte d'authentification
- * (AUCUNE écriture dans profiles ou autres tables)
-=======
  * Crée un utilisateur Supabase + profile + table spécifique
->>>>>>> 99dc8c3 (Initial commit - identity service)
  */
 export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
-<<<<<<< HEAD
-  const { data, error } = await supabase.auth.admin.createUser({
-    email: payload.email,
-    password: payload.password,
-    email_confirm: true,
-  });
-
-  if (error || !data.user) {
-    throw new Error(`Auth creation failed: ${error?.message}`);
-  }
-
-  return {
-    userId: data.user.id,
-    email: data.user.email!,
-  };
-};
-
-/**
- * Login utilisateur
-=======
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
       email: payload.email,
@@ -125,7 +95,7 @@ export const registerUser = async (
 
     case 'admin': {
       const { error } = await supabase.from('admins').insert({ id: userId });
-      
+
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
@@ -137,7 +107,7 @@ export const registerUser = async (
 
     case 'superviseur': {
       const { error } = await supabase.from('superviseurs').insert({ id: userId });
-      
+
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
@@ -194,7 +164,6 @@ export const registerUser = async (
 
 /**
  * Login utilisateur via email/password
->>>>>>> 99dc8c3 (Initial commit - identity service)
  */
 export const loginUser = async (
   supabase: SupabaseClient,

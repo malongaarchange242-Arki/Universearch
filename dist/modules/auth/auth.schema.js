@@ -22,7 +22,7 @@ exports.registerSchema = {
             email: {
                 type: 'string',
                 format: 'email',
-                description: 'Adresse email de l’utilisateur'
+                description: 'Adresse email de l\'utilisateur'
             },
             password: {
                 type: 'string',
