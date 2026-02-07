@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS superviseurs (
 -- 3) En production, ajoutez triggers pour maintenir `updated_at` et contrôles additionnels.
 
 
+<<<<<<< HEAD
 
 
 
@@ -73,4 +74,77 @@ CREATE TABLE universites_scores (
     score_previous double precision,
     score_details jsonb,
     updated_at timestamptz DEFAULT now()
+=======
+CREATE TABLE public.universites (
+  id uuid PRIMARY KEY, -- même id que le user Supabase
+  nom text NOT NULL,
+  description text,
+  contacts text,
+  email text,
+  lien_site text,
+  logo_url text,
+  couverture_logo_url text,
+  domaine text,
+  bde_id uuid,
+  statut text NOT NULL DEFAULT 'PENDING',
+  video_url text,
+  date_creation timestamp without time zone DEFAULT now(),
+  profile_id uuid NOT NULL,
+
+  CONSTRAINT fk_universite_profile
+    FOREIGN KEY (profile_id)
+    REFERENCES public.profiles(id)
+    ON DELETE CASCADE
+);
+
+
+CREATE TABLE public.centres_formation (
+  id uuid PRIMARY KEY, -- même id que le user Supabase
+  nom text NOT NULL,
+  description text,
+  contacts text,
+  email text,
+  lien_site text,
+  logo_url text,
+  couverture_logo_url text,
+  domaine text,
+  statut text NOT NULL DEFAULT 'PENDING',
+  video_url text,
+  date_creation timestamp without time zone DEFAULT now(),
+  profile_id uuid NOT NULL,
+
+  CONSTRAINT fk_centre_profile
+    FOREIGN KEY (profile_id)
+    REFERENCES public.profiles(id)
+    ON DELETE CASCADE
+);
+
+ALTER TABLE public.universites
+ADD CONSTRAINT universites_statut_check
+CHECK (statut IN ('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'));
+
+ALTER TABLE public.centres_formation
+ADD CONSTRAINT centres_statut_check
+CHECK (statut IN ('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'));
+
+
+-- Crée un bucket public nommé "logos"
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('logos', 'logos', true);
+
+CREATE POLICY "Allow authenticated uploads"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'logos'
+);
+
+
+CREATE POLICY "Public select on logos"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id = 'logos'
+>>>>>>> 99dc8c3 (Initial commit - identity service)
 );
