@@ -28,6 +28,7 @@ export interface LoginPayload {
 export interface AuthResult {
   userId: string;
   email: string;
+  token?: string | null;
 }
 
 export interface LoginResult {
@@ -159,8 +160,23 @@ export const registerUser = async (
       break;
   }
 
+  // After successful creation, attempt to sign in the new user to obtain a token
+  try {
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: payload.email,
+      password: payload.password,
+    });
+
+    if (!signInError && signInData.session && signInData.session.access_token) {
+      return { userId, email: payload.email, token: signInData.session.access_token };
+    }
+  } catch (e) {
+    // ignore sign-in errors; return without token
+  }
+
   return { userId, email: payload.email };
 };
+
 
 /**
  * Login utilisateur via email/password

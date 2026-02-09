@@ -50,12 +50,30 @@ export const loginHandler = async (
       });
     }
 
+    // Attempt to fetch userType from utilisateurs table (if present)
+    let userType: string | null = null;
+    try {
+      const { data: utilData, error: utilError } = await supabaseAdmin
+        .from('utilisateurs')
+        .select('user_type')
+        .eq('id', data.user.id)
+        .single();
+
+      if (!utilError && utilData && (utilData as any).user_type) {
+        userType = (utilData as any).user_type;
+      }
+    } catch (e) {
+      // ignore lookup errors, we'll return without userType
+      request.log.warn({ err: e }, 'Failed to fetch userType for login response');
+    }
+
     reply.send({
       success: true,
       data: {
         userId: data.user.id,
         email: data.user.email,
         token: data.session?.access_token, // si JWT
+        userType,
       },
     });
   } catch (err) {

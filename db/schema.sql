@@ -148,3 +148,58 @@ USING (
   bucket_id = 'logos'
 >>>>>>> 99dc8c3 (Initial commit - identity service)
 );
+
+
+create table posts (
+  id uuid primary key default gen_random_uuid(),
+
+  author_id uuid not null, -- = id universite ou centre
+  author_type text not null check (author_type in ('universite','centre_formation')),
+
+  titre text,
+  description text,
+
+  media_url text,      -- image ou vidéo
+  media_type text check (media_type in ('image','video')),
+
+  statut text not null default 'PUBLISHED' check (statut in ('PUBLISHED','ARCHIVED')),
+
+  date_creation timestamp default now()
+);
+
+
+create index posts_author_idx on posts(author_id);
+create index posts_date_idx on posts(date_creation desc);
+create index posts_statut_idx on posts(statut);
+
+
+create table post_likes (
+  user_id uuid references profiles(id) on delete cascade,
+  post_id uuid references posts(id) on delete cascade,
+  date_like timestamp default now(),
+  primary key (user_id, post_id)
+);
+
+create table post_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references posts(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  contenu text not null,
+  date_comment timestamp default now()
+);
+
+create table post_shares (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references posts(id) on delete cascade,
+  user_id uuid references profiles(id) on delete cascade,
+  date_share timestamp default now()
+);
+
+create table post_views (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references posts(id) on delete cascade,
+  user_id uuid references profiles(id),
+  view_duration integer, -- secondes regardées
+  date_view timestamp default now()
+);
+
