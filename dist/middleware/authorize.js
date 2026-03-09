@@ -25,7 +25,8 @@ const authorize = (allowedRoles) => {
                 request.log?.info('authorize: unauthenticated');
                 return reply.status(401).send({ error: 'Unauthenticated' });
             }
-            const role = request.user.role;
+            const roleRaw = request.user.role;
+            const role = roleRaw?.toLowerCase();
             if (!role) {
                 (0, metrics_1.incCounter)('authorize.missing_role');
                 request.log?.info({ userId: request.user.id }, 'authorize: missing role');

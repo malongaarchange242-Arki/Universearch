@@ -20,6 +20,7 @@ import {
   updateMyUniversiteSchema,
   getUniversiteByIdSchema,
   listUniversitesSchema,
+  attachFilieresSchema,
 } from './universites.schema';
 
 export const universitesRoutes = async (
@@ -30,6 +31,8 @@ export const universitesRoutes = async (
   const controller = new UniversitesController(service);
 
   // Routes publiques (sans authentification)
+  app.post('/', (req, reply) => controller.createUniversite(req, reply));
+
   app.get(
     '/',
     { schema: listUniversitesSchema },
@@ -59,6 +62,12 @@ export const universitesRoutes = async (
         { schema: updateMyUniversiteSchema },
         (req, reply) => controller.updateMyUniversite(req, reply)
       );
+
+      // Attach multiple filières to my université
+      fastify.post('/me/filieres', { schema: attachFilieresSchema as any }, (req, reply) => controller.attachFilieresToMyUniversite(req, reply));
+
+      // Upload logo for my université
+      fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
     }
   );
 };

@@ -35,7 +35,7 @@ exports.registerSchema = {
                 maxLength: 100
             },
             prenom: {
-                type: ['string', 'null'],
+                type: 'string',
                 nullable: true,
                 minLength: 2,
                 maxLength: 100,

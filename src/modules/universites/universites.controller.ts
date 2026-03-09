@@ -57,6 +57,30 @@ export class UniversitesController {
   }
 
   /**
+   * POST /universites/me/filieres
+   * Attacher plusieurs filières à l'université de l'utilisateur connecté.
+   * Body: { filiereIds: string[] }
+   */
+  async attachFilieresToMyUniversite(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = (req.user as any).id;
+      const body = req.body as any;
+      const filiereIds = Array.isArray(body && body.filiereIds) ? body.filiereIds : [];
+
+      if (!filiereIds.length) {
+        return reply.status(400).send({ error: 'filiereIds is required' });
+      }
+
+      const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds);
+
+      reply.status(200).send({ success: true, data: result });
+    } catch (err) {
+      req.log.error(err);
+      reply.status(500).send({ error: (err as Error).message });
+    }
+  }
+
+  /**
    * GET /universites/:id
    * Récupérer les infos publiques d'une université (approuvée)
    */
@@ -94,15 +118,71 @@ export class UniversitesController {
 
       const data = await this.service.listApprovedUniversites(limit, offset);
 
-      reply.status(200).send({
-        count: data.length,
-        data,
-      });
+      reply.status(200).send(data);
     } catch (err) {
       req.log.error(err);
       reply.status(500).send({
         error: (err as Error).message,
       });
+    }
+  }
+
+  /**
+   * POST /universites
+   * Create a new université (public)
+   */
+  async createUniversite(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const payload = req.body as any;
+      const result = await this.service.createUniversite(payload);
+      reply.status(201).send({ success: true, data: result });
+    } catch (err) {
+      req.log.error(err);
+      reply.status(400).send({ success: false, error: (err as Error).message });
+    }
+  }
+
+  /**
+   * POST /universites/me/logo
+   * Upload a logo for the authenticated user's université.
+   * Accepts multipart file (preferred) or JSON { file: <base64>, filename, contentType }.
+   */
+  async uploadMyLogo(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = (req.user as any).id;
+
+      let buffer: Buffer | null = null;
+      let filename = `logo_${Date.now()}.png`;
+      let contentType = 'image/png';
+
+      // Try multipart first (if fastify-multipart is enabled)
+      try {
+        const mp = (req as any).file ? await (req as any).file() : null;
+        if (mp) {
+          buffer = await mp.toBuffer();
+          filename = mp.filename || filename;
+          contentType = mp.mimetype || contentType;
+        }
+      } catch (e) {
+        // ignore and fallback to JSON body
+      }
+
+      if (!buffer) {
+        const body = req.body as any;
+        if (!body || !body.file || !body.filename) {
+          return reply.status(400).send({ success: false, error: 'No file provided' });
+        }
+        buffer = Buffer.from(body.file, 'base64');
+        filename = body.filename;
+        contentType = body.contentType || contentType;
+      }
+
+      const url = await this.service.uploadLogoForMyUniversite(userId, buffer, filename, contentType);
+
+      reply.status(200).send({ success: true, url });
+    } catch (err) {
+      req.log.error(err);
+      reply.status(500).send({ success: false, error: (err as Error).message });
     }
   }
 }

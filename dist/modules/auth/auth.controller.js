@@ -36,17 +36,39 @@ const loginHandler = async (request, reply) => {
             password,
         });
         if (error || !data.user) {
+            request.log.warn({ err: error }, 'Login failed for email');
             return reply.status(401).send({
                 success: false,
-                error: 'Invalid credentials',
+                error: error?.message || 'Invalid credentials',
+                details: error ?? null,
             });
         }
-        reply.send({
-            success: true,
-            data: {
-                userId: data.user.id,
-                email: data.user.email,
-                token: data.session?.access_token, // si JWT
+        // Attempt to fetch profile to determine profile_type (universite / centre_formation)
+        let role = null;
+        try {
+            const { data: profileData, error: profileError } = await supabase_1.supabaseAdmin
+                .from('profiles')
+                .select('profile_type')
+                .eq('id', data.user.id)
+                .single();
+            if (!profileError && profileData && profileData.profile_type) {
+                const pt = profileData.profile_type;
+                if (pt === 'universite')
+                    role = 'UNIVERSITE';
+                else if (pt === 'centre_formation')
+                    role = 'CENTRE';
+            }
+        }
+        catch (e) {
+            request.log.warn({ err: e }, 'Failed to fetch profile for login response');
+        }
+        // Standardized response: token + user object with role for frontend routing
+        return reply.status(200).send({
+            token: data.session?.access_token ?? null,
+            user: {
+                id: data.user.id,
+                email: data.user.email ?? null,
+                role: role ?? null,
             },
         });
     }

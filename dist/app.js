@@ -10,6 +10,8 @@ const users_routes_1 = require("./modules/users/users.routes");
 const admin_routes_1 = require("./modules/admin/admin.routes");
 const universites_routes_1 = require("./modules/universites/universites.routes");
 const centres_routes_1 = require("./modules/centres-formation/centres.routes");
+const bde_routes_1 = require("./modules/bde/bde.routes");
+const representants_routes_1 = require("./modules/representants/representants.routes");
 const supabase_1 = __importDefault(require("./plugins/supabase"));
 /**
  * Instance principale de l'application Fastify.
@@ -60,6 +62,17 @@ app.post('/health', async () => ({
     timestamp: new Date().toISOString(),
 }));
 // Plugins: supabase must be registered before other routes (depends on it)
+// Lightweight CORS handling for Fastify v4 (avoid upgrading Fastify/plugin mismatch)
+app.addHook('onRequest', (request, reply, done) => {
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, x-user-id');
+    if (request.raw.method === 'OPTIONS') {
+        reply.status(204).send();
+        return;
+    }
+    done();
+});
 app.register(supabase_1.default);
 // Register routes
 app.register(auth_routes_1.authRoutes, { prefix: '/auth' });
@@ -67,6 +80,8 @@ app.register(users_routes_1.usersRoutes);
 app.register(admin_routes_1.adminRoutes, { prefix: '/admin' });
 app.register(universites_routes_1.universitesRoutes, { prefix: '/universites' });
 app.register(centres_routes_1.centresRoutes, { prefix: '/centres' });
+app.register(bde_routes_1.registerBdeRoutes);
+app.register(representants_routes_1.registerRepresentantRoutes);
 /**
  * Hook global pour gérer les erreurs non interceptées.
  * Garantit des réponses cohérentes.

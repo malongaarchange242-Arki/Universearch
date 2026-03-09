@@ -28,7 +28,8 @@ export const authorize = (allowedRoles: string[]) => {
         return reply.status(401).send({ error: 'Unauthenticated' });
       }
 
-      const role = (request.user as any).role as string | undefined;
+      const roleRaw = (request.user as any).role as string | undefined;
+      const role = roleRaw?.toLowerCase();
 
       if (!role) {
         incCounter('authorize.missing_role');

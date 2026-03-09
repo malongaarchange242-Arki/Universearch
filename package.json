@@ -9,6 +9,7 @@
         "start": "node dist/server.js"
     },
     "dependencies": {
+        "@fastify/cors": "^11.2.0",
         "@supabase/supabase-js": "^2.95.3",
         "dotenv": "^16.4.5",
         "fastify": "^4.26.0",

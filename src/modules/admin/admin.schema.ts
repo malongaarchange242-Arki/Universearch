@@ -298,3 +298,37 @@ export const listPendingCentresSchema = {
   },
 };
 
+export const dashboardStatsSchema = {
+  description: 'Statistiques agrégées pour le dashboard admin',
+  tags: ['Admin'],
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        universites: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer' },
+            approved: { type: 'integer' },
+            pending: { type: 'integer' },
+          },
+        },
+        centres: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer' },
+            approved: { type: 'integer' },
+            pending: { type: 'integer' },
+          },
+        },
+        utilisateurs: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer' },
+          },
+        },
+      },
+    },
+  },
+};
+

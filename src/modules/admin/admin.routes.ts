@@ -21,6 +21,7 @@ import {
   approveCentreSchema,
   rejectCentreSchema,
   listPendingCentresSchema,
+  dashboardStatsSchema,
 } from './admin.schema';
 
 export const adminRoutes = async (
@@ -105,6 +106,13 @@ export const adminRoutes = async (
         '/centres/pending',
         { schema: listPendingCentresSchema },
         (req, reply) => controller.listPendingCentres(req, reply)
+      );
+
+      // Dashboard stats (aggregated counts)
+      fastify.get(
+        '/dashboard/stats',
+        { schema: dashboardStatsSchema },
+        (req, reply) => controller.dashboardStats(req, reply)
       );
     }
   );

@@ -33,7 +33,7 @@ export const registerSchema = {
         maxLength: 100
       },
       prenom: {
-        type: ['string', 'null'],
+        type: 'string',
         nullable: true,
         minLength: 2,
         maxLength: 100,
@@ -95,6 +95,16 @@ export const loginSchema = {
         type: 'string',
         minLength: 8
       }
+    }
+  }
+};
+
+export const checkEmailSchema = {
+  body: {
+    type: 'object',
+    required: ['email'],
+    properties: {
+      email: { type: 'string', format: 'email' }
     }
   }
 };

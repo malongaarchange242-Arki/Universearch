@@ -3,6 +3,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 export interface CentreFormationRecord {
   id: string;
@@ -22,6 +23,57 @@ export interface CentreFormationRecord {
 
 export class CentresService {
   constructor(private supabase: SupabaseClient) {}
+
+  /**
+   * Create a new centre de formation (and profile record)
+   */
+  async createCentre(payload: Partial<CentreFormationRecord> & { telephone?: string }): Promise<CentreFormationRecord> {
+    const profileId = randomUUID();
+    const centreId = randomUUID();
+
+    // Insert profile
+    const { error: profileError } = await this.supabase
+      .from('profiles')
+      .insert({
+        id: profileId,
+        nom: payload.nom ?? null,
+        email: payload.email ?? null,
+        telephone: (payload as any).telephone ?? null,
+        profile_type: 'centre_formation',
+        created_at: new Date().toISOString(),
+      });
+
+    if (profileError) {
+      throw new Error(`Failed to create profile: ${profileError.message}`);
+    }
+
+    const { data, error } = await this.supabase
+      .from('centres_formation')
+      .insert({
+        id: centreId,
+        profile_id: profileId,
+        nom: payload.nom ?? null,
+        description: payload.description ?? null,
+        email: payload.email ?? null,
+        statut: (payload.statut as any) ?? 'PENDING',
+        logo_url: payload.logo_url ?? null,
+        couverture_logo_url: payload.couverture_logo_url ?? null,
+        lien_site: payload.lien_site ?? null,
+        domaine: payload.domaine ?? null,
+        video_url: payload.video_url ?? null,
+        date_creation: new Date().toISOString(),
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      // rollback profile
+      await this.supabase.from('profiles').delete().eq('id', profileId);
+      throw new Error(`Failed to create centre: ${error.message}`);
+    }
+
+    return data as CentreFormationRecord;
+  }
 
   /**
    * Récupérer mon centre (par profile_id de l'utilisateur connecté)
@@ -49,7 +101,12 @@ export class CentresService {
     payload: Partial<CentreFormationRecord>
   ): Promise<CentreFormationRecord> {
     // Interdire la modification du statut via cette route
-    const { statut, profile_id, id, date_creation, ...updateData } = payload as any;
+    const { statut, profile_id, id, date_creation, selectedFilieres, ...updateData } = payload as any;
+
+    // If frontend sent selectedFilieres (array), persist as a comma-separated domaine
+    if (selectedFilieres && Array.isArray(selectedFilieres)) {
+      updateData.domaine = selectedFilieres.join(', ');
+    }
 
     const { data, error } = await this.supabase
       .from('centres_formation')
@@ -106,5 +163,51 @@ export class CentresService {
     }
 
     return data || [];
+  }
+
+  /**
+   * Upload a logo for the caller's centre and persist the public URL.
+   * Accepts a Buffer containing image data.
+   */
+  async uploadLogoForMyCentre(userId: string, buffer: Buffer, filename: string, contentType = 'image/png'): Promise<string> {
+    // find centre by profile_id
+    const { data: centre, error: centreErr } = await this.supabase
+      .from('centres_formation')
+      .select('id')
+      .eq('profile_id', userId)
+      .single();
+
+    if (centreErr || !centre) {
+      throw new Error('Centre not found for your account');
+    }
+
+    const centreId = (centre as any).id as string;
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `logos/${centreId}/${Date.now()}_${safeName}`;
+
+    // upload to storage
+    const { data: uploadData, error: uploadError } = await this.supabase.storage
+      .from('logos')
+      .upload(path, buffer, { contentType, upsert: false });
+
+    if (uploadError) {
+      throw new Error(`Logo upload failed: ${uploadError.message}`);
+    }
+
+    // get public url
+    const getUrlResult = this.supabase.storage.from('logos').getPublicUrl(uploadData.path as any);
+    const publicURL = (getUrlResult as any)?.publicURL ?? (getUrlResult as any)?.data?.publicUrl ?? (getUrlResult as any)?.data?.publicURL ?? null;
+
+    // persist to centres_formation
+    const { error: updateErr } = await this.supabase
+      .from('centres_formation')
+      .update({ logo_url: publicURL, updated_at: new Date().toISOString() })
+      .eq('id', centreId);
+
+    if (updateErr) {
+      throw new Error(`Failed to update centre logo: ${updateErr.message}`);
+    }
+
+    return publicURL;
   }
 }

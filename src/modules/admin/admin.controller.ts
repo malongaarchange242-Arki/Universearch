@@ -117,6 +117,20 @@ export class AdminController {
   }
 
   /**
+   * GET /admin/dashboard/stats
+   * Retourne les statistiques agrégées pour le dashboard admin
+   */
+  async dashboardStats(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const stats = await this.service.getDashboardStats();
+      reply.status(200).send(stats);
+    } catch (err) {
+      req.log.error(err);
+      reply.status(500).send({ error: (err as Error).message });
+    }
+  }
+
+  /**
    * Changer le statut d'un centre de formation
    * PATCH /admin/centres/:id/status
    */

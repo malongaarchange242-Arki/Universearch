@@ -2,23 +2,31 @@
  * Schémas de validation pour les opérations sur les centres de formation.
  */
 
+// 🔹 Propriétés publiques d’un centre
+const centrePublicProperties = {
+  id: { type: 'string' },
+  profile_id: { type: 'string' },
+  nom: { type: 'string' },
+  description: { type: 'string' },
+  email: { type: 'string' },
+  statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+  logo_url: { type: 'string' },
+  couverture_logo_url: { type: 'string' },
+  lien_site: { type: 'string' },
+  domaine: { type: 'string' },
+  video_url: { type: 'string' },
+  date_creation: { type: 'string' },
+  created_at: { type: 'string' },
+  updated_at: { type: 'string' },
+};
+
 export const getMyCentreSchema = {
   tags: ['Centres'],
   response: {
     200: {
       type: 'object',
-      properties: {
-        id: { type: 'string' },
-        nom: { type: 'string' },
-        description: { type: 'string' },
-        email: { type: 'string' },
-        statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
-        logo_url: { type: 'string' },
-        couverture_logo_url: { type: 'string' },
-        lien_site: { type: 'string' },
-        domaine: { type: 'string' },
-        video_url: { type: 'string' },
-      },
+      properties: centrePublicProperties,
+      additionalProperties: false,
     },
   },
 };
@@ -37,15 +45,13 @@ export const updateMyCentreSchema = {
       domaine: { type: 'string' },
       video_url: { type: 'string' },
     },
+    additionalProperties: false,
   },
   response: {
     200: {
       type: 'object',
-      properties: {
-        id: { type: 'string' },
-        nom: { type: 'string' },
-        updated_at: { type: 'string' },
-      },
+      properties: centrePublicProperties,
+      additionalProperties: false,
     },
   },
 };
@@ -58,10 +64,13 @@ export const getCentreByIdSchema = {
     properties: {
       id: { type: 'string', format: 'uuid' },
     },
+    additionalProperties: false,
   },
   response: {
     200: {
       type: 'object',
+      properties: centrePublicProperties,
+      additionalProperties: false,
     },
   },
 };
@@ -74,11 +83,16 @@ export const listCentresSchema = {
       limit: { type: 'integer', default: 20 },
       offset: { type: 'integer', default: 0 },
     },
+    additionalProperties: false,
   },
   response: {
     200: {
       type: 'array',
-      items: { type: 'object' },
+      items: {
+        type: 'object',
+        properties: centrePublicProperties,
+        additionalProperties: false,
+      },
     },
   },
 };

@@ -44,36 +44,39 @@ export const loginHandler = async (
     });
 
     if (error || !data.user) {
+      request.log.warn({ err: error }, 'Login failed for email');
       return reply.status(401).send({
         success: false,
-        error: 'Invalid credentials',
+        error: error?.message || 'Invalid credentials',
+        details: error ?? null,
       });
     }
 
-    // Attempt to fetch userType from utilisateurs table (if present)
-    let userType: string | null = null;
+    // Attempt to fetch profile to determine profile_type (universite / centre_formation)
+    let role: string | null = null;
     try {
-      const { data: utilData, error: utilError } = await supabaseAdmin
-        .from('utilisateurs')
-        .select('user_type')
+      const { data: profileData, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('profile_type')
         .eq('id', data.user.id)
         .single();
 
-      if (!utilError && utilData && (utilData as any).user_type) {
-        userType = (utilData as any).user_type;
+      if (!profileError && profileData && (profileData as any).profile_type) {
+        const pt = (profileData as any).profile_type as string;
+        if (pt === 'universite') role = 'UNIVERSITE';
+        else if (pt === 'centre_formation') role = 'CENTRE';
       }
     } catch (e) {
-      // ignore lookup errors, we'll return without userType
-      request.log.warn({ err: e }, 'Failed to fetch userType for login response');
+      request.log.warn({ err: e }, 'Failed to fetch profile for login response');
     }
 
-    reply.send({
-      success: true,
-      data: {
-        userId: data.user.id,
-        email: data.user.email,
-        token: data.session?.access_token, // si JWT
-        userType,
+    // Standardized response: token + user object with role for frontend routing
+    return reply.status(200).send({
+      token: data.session?.access_token ?? null,
+      user: {
+        id: data.user.id,
+        email: data.user.email ?? null,
+        role: role ?? null,
       },
     });
   } catch (err) {
@@ -82,6 +85,80 @@ export const loginHandler = async (
       success: false,
       error: 'Internal server error',
     });
+  }
+};
+
+// Simple in-memory rate limiter for check-email endpoint
+const _checkEmailRate = new Map<string, { count: number; first: number }>();
+const CHECK_EMAIL_MAX = 10; // max requests
+const CHECK_EMAIL_WINDOW = 60 * 1000; // window ms
+
+/**
+ * Handler pour vérifier l'existence d'un email dans la table `admis`.
+ * POST /auth/check-email { email }
+ */
+export const checkEmailHandler = async (
+  request: FastifyRequest<{ Body: { email: string } }>,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const ip = (request.ip as string) || (request.raw.socket.remoteAddress as string) || 'unknown';
+    const now = Date.now();
+    const entry = _checkEmailRate.get(ip);
+    if (!entry || now - entry.first > CHECK_EMAIL_WINDOW) {
+      _checkEmailRate.set(ip, { count: 1, first: now });
+    } else {
+      entry.count += 1;
+      if (entry.count > CHECK_EMAIL_MAX) {
+        request.log.warn({ ip, email: request.body?.email }, 'Rate limit exceeded for check-email');
+        return reply.status(429).send({ error: 'Too many requests' });
+      }
+      _checkEmailRate.set(ip, entry);
+    }
+
+    const { email } = request.body;
+    if (!email) return reply.status(400).send({ error: 'Email required' });
+
+    // Preferred: query `profiles` table where emails are stored
+    let data: any = null;
+    let error: any = null;
+    try {
+      const r = await supabaseAdmin.from('profiles').select('id').eq('email', email).maybeSingle();
+      data = r.data; error = r.error;
+    } catch (e) {
+      error = e as any;
+    }
+
+    // If profiles table not available, try legacy tables (`admis` or `admins`)
+    if (error || !data) {
+      try {
+        const r2 = await supabaseAdmin.from('admis').select('id').eq('email', email).maybeSingle();
+        data = r2.data; error = r2.error;
+      } catch (e2) {
+        error = e2 as any;
+      }
+    }
+
+    if (error && /Could not find the table 'public.admis'/.test(String(error?.message || error))) {
+      try {
+        const r3 = await supabaseAdmin.from('admins').select('id').eq('email', email).maybeSingle();
+        data = r3.data; error = r3.error;
+      } catch (e3) {
+        error = e3 as any;
+      }
+    }
+
+    if (error) {
+      request.log.error({ err: error, email }, 'Failed to query email tables');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+
+    const exists = !!(data && (data as any).id);
+    // Always return a generic shape; never leak extra details
+    return reply.status(200).send({ exists });
+  } catch (err) {
+    request.log.error(err);
+    return reply.status(500).send({ error: 'Internal server error' });
   }
 };
 

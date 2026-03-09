@@ -82,16 +82,68 @@ class UniversitesController {
         try {
             const { limit = 20, offset = 0 } = req.query;
             const data = await this.service.listApprovedUniversites(limit, offset);
-            reply.status(200).send({
-                count: data.length,
-                data,
-            });
+            reply.status(200).send(data);
         }
         catch (err) {
             req.log.error(err);
             reply.status(500).send({
                 error: err.message,
             });
+        }
+    }
+    /**
+     * POST /universites
+     * Create a new université (public)
+     */
+    async createUniversite(req, reply) {
+        try {
+            const payload = req.body;
+            const result = await this.service.createUniversite(payload);
+            reply.status(201).send({ success: true, data: result });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(400).send({ success: false, error: err.message });
+        }
+    }
+    /**
+     * POST /universites/me/logo
+     * Upload a logo for the authenticated user's université.
+     * Accepts multipart file (preferred) or JSON { file: <base64>, filename, contentType }.
+     */
+    async uploadMyLogo(req, reply) {
+        try {
+            const userId = req.user.id;
+            let buffer = null;
+            let filename = `logo_${Date.now()}.png`;
+            let contentType = 'image/png';
+            // Try multipart first (if fastify-multipart is enabled)
+            try {
+                const mp = req.file ? await req.file() : null;
+                if (mp) {
+                    buffer = await mp.toBuffer();
+                    filename = mp.filename || filename;
+                    contentType = mp.mimetype || contentType;
+                }
+            }
+            catch (e) {
+                // ignore and fallback to JSON body
+            }
+            if (!buffer) {
+                const body = req.body;
+                if (!body || !body.file || !body.filename) {
+                    return reply.status(400).send({ success: false, error: 'No file provided' });
+                }
+                buffer = Buffer.from(body.file, 'base64');
+                filename = body.filename;
+                contentType = body.contentType || contentType;
+            }
+            const url = await this.service.uploadLogoForMyUniversite(userId, buffer, filename, contentType);
+            reply.status(200).send({ success: true, url });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({ success: false, error: err.message });
         }
     }
 }

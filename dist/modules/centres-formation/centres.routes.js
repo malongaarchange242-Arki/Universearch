@@ -21,6 +21,7 @@ const centresRoutes = async (app, _options) => {
     const service = new centres_service_1.CentresService(supabase_1.supabaseAdmin);
     const controller = new centres_controller_1.CentresController(service);
     // Routes publiques (sans authentification)
+    app.post('/', (req, reply) => controller.createCentre(req, reply));
     app.get('/', { schema: centres_schema_1.listCentresSchema }, (req, reply) => controller.listApprovedCentres(req, reply));
     app.get('/:id', { schema: centres_schema_1.getCentreByIdSchema }, (req, reply) => controller.getCentreById(req, reply));
     // Routes protégées (authentification + autorisation CENTRE_FORMATION + vérification APPROVED)
@@ -29,6 +30,8 @@ const centresRoutes = async (app, _options) => {
         fastify.addHook('preHandler', (0, middleware_1.authorize)(['centre_formation']));
         fastify.get('/me', { schema: centres_schema_1.getMyCentreSchema }, (req, reply) => controller.getMyCentre(req, reply));
         fastify.put('/me', { schema: centres_schema_1.updateMyCentreSchema }, (req, reply) => controller.updateMyCentre(req, reply));
+        // Upload logo for caller's centre
+        fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
     });
 };
 exports.centresRoutes = centresRoutes;

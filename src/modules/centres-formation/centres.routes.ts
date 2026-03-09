@@ -30,6 +30,8 @@ export const centresRoutes = async (
   const controller = new CentresController(service);
 
   // Routes publiques (sans authentification)
+  app.post('/', (req, reply) => controller.createCentre(req, reply));
+
   app.get(
     '/',
     { schema: listCentresSchema },
@@ -59,6 +61,9 @@ export const centresRoutes = async (
         { schema: updateMyCentreSchema },
         (req, reply) => controller.updateMyCentre(req, reply)
       );
+
+      // Upload logo for caller's centre
+      fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
     }
   );
 };

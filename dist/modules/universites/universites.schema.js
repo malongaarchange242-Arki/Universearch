@@ -30,6 +30,8 @@ exports.updateMyUniversiteSchema = {
         type: 'object',
         properties: {
             nom: { type: 'string' },
+            sigle: { type: 'string' },
+            annee_fondation: { type: 'integer' },
             description: { type: 'string' },
             email: { type: 'string' },
             logo_url: { type: 'string' },
