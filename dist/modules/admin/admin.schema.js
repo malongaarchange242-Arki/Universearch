@@ -4,7 +4,7 @@
  * Utilisés par Fastify pour valider les requêtes entrant.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listPendingCentresSchema = exports.rejectCentreSchema = exports.approveCentreSchema = exports.updateCentreStatusSchema = exports.listPendingUniversitesSchema = exports.rejectUniversiteSchema = exports.approveUniversiteSchema = exports.updateUniversiteStatusSchema = void 0;
+exports.dashboardStatsSchema = exports.listPendingCentresSchema = exports.rejectCentreSchema = exports.approveCentreSchema = exports.updateCentreStatusSchema = exports.listPendingUniversitesSchema = exports.rejectUniversiteSchema = exports.approveUniversiteSchema = exports.updateUniversiteStatusSchema = void 0;
 exports.updateUniversiteStatusSchema = {
     description: 'Changer le statut d\'une université (PENDING, APPROVED, REJECTED)',
     tags: ['Admin'],
@@ -287,6 +287,39 @@ exports.listPendingCentresSchema = {
                     email: { type: 'string' },
                     statut: { type: 'string' },
                     date_creation: { type: 'string' },
+                },
+            },
+        },
+    },
+};
+exports.dashboardStatsSchema = {
+    description: 'Statistiques agrégées pour le dashboard admin',
+    tags: ['Admin'],
+    response: {
+        200: {
+            type: 'object',
+            properties: {
+                universites: {
+                    type: 'object',
+                    properties: {
+                        total: { type: 'integer' },
+                        approved: { type: 'integer' },
+                        pending: { type: 'integer' },
+                    },
+                },
+                centres: {
+                    type: 'object',
+                    properties: {
+                        total: { type: 'integer' },
+                        approved: { type: 'integer' },
+                        pending: { type: 'integer' },
+                    },
+                },
+                utilisateurs: {
+                    type: 'object',
+                    properties: {
+                        total: { type: 'integer' },
+                    },
                 },
             },
         },

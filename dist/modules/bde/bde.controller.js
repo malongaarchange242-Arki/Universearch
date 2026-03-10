@@ -69,9 +69,9 @@ class BdeController {
             const { universite_id } = request.params;
             const bde = await this.bdeService.getBdeByUniversiteId(universite_id);
             if (!bde) {
-                return reply.status(404).send({
-                    success: false,
-                    error: 'No active BDE found for this university',
+                return reply.send({
+                    success: true,
+                    data: null, // Return null instead of 404 for better frontend handling
                 });
             }
             return reply.send({

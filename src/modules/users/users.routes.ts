@@ -11,6 +11,11 @@ export const usersRoutes = async (
 ): Promise<void> => {
   const controller = new UsersController(supabaseAdmin);
 
+  // Public route for user count (for dashboard stats)
+  app.get('/users/count', async (req, reply) =>
+    controller.getUserCount(req as any, reply)
+  );
+
   // Routes utilisateurs
   // - GET /users/:id -> authentifié (user lui-même, admin ou superviseur). Authorization fine-grained handled in controller/service.
   app.get('/users/:id', { preHandler: [authenticate] }, async (req, reply) =>

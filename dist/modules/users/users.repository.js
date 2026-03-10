@@ -58,5 +58,16 @@ class UsersRepository {
         if (error)
             throw new Error(error.message);
     }
+    /**
+     * Compte le nombre total d'utilisateurs
+     */
+    async count() {
+        const { count, error } = await this.supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+        if (error)
+            throw new Error(error.message);
+        return count || 0;
+    }
 }
 exports.UsersRepository = UsersRepository;

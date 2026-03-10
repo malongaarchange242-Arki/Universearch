@@ -35,7 +35,7 @@ export class UniversitesController {
 
   /**
    * PUT /universites/me
-   * Mettre à jour mes infos université
+   * Mettre à jour mes infos université (nom, description, sigle, annee_fondation, contacts, lien_site, logo, domaine, etc.)
    */
   async updateMyUniversite(req: FastifyRequest, reply: FastifyReply) {
     try {

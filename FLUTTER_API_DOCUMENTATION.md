@@ -2,10 +2,9 @@
 
 ## Base URL
 ```
-http://localhost:3001
+https://universearch-9qle.onrender.com
 ```
 
----
 
 ## 🏫 UNIVERSITÉS ENDPOINTS
 
@@ -20,7 +19,7 @@ http://localhost:3001
 
 **Example Request:**
 ```
-GET http://localhost:3001/universites?limit=20&offset=0
+GET https://universearch-9qle.onrender.com/universites?limit=20&offset=0
 ```
 
 **Response: 200 OK**
@@ -42,47 +41,13 @@ GET http://localhost:3001/universites?limit=20&offset=0
     "sigle": "UFHB",
     "annee_fondation": 1964
   },
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440002",
-    "nom": "Université Alassane Ouattara",
-    "description": "Université moderne avec focus sur les sciences et technologies.",
-    "email": "contact@uao.ci",
-    "lien_site": "https://www.uao.edu.ci",
-    "logo_url": "https://storage.example.com/logos/uao.png",
-    "couverture_logo_url": "https://storage.example.com/covers/uao.jpg",
-    "domaine": "Scientifique",
-    "statut": "APPROVED",
-    "video_url": null,
-    "date_creation": "2025-02-10T00:00:00Z",
-    "profile_id": "550e8400-e29b-41d4-a716-446655440003",
-    "sigle": "UAO",
-    "annee_fondation": 2000
-  }
+  
 ]
 ```
 
 **Error Responses:**
 - `500 Internal Server Error` - Erreur serveur
 
-**Field Descriptions:**
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | ID unique de l'université |
-| nom | string | Nom officiel |
-| description | string | Courte description |
-| email | string | Email de contact |
-| lien_site | string | URL du site officiel |
-| logo_url | string | URL du logo |
-| couverture_logo_url | string | URL de la couverture/bannière |
-| domaine | string | Domaine académique |
-| statut | string | APPROVED, PENDING, REJECTED, SUSPENDED |
-| video_url | string \| null | URL vidéo de présentation |
-| date_creation | ISO 8601 | Date de création |
-| profile_id | string (UUID) | ID du profil associé |
-| sigle | string | Acronyme/sigle |
-| annee_fondation | integer | Année de création |
-
----
 
 ### 2. Get University by ID (Public)
 **GET** `/universites/:id`
@@ -94,7 +59,7 @@ GET http://localhost:3001/universites?limit=20&offset=0
 
 **Example Request:**
 ```
-GET http://localhost:3001/universites/550e8400-e29b-41d4-a716-446655440000
+GET https://universearch-9qle.onrender.com/universites/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response: 200 OK**
@@ -133,7 +98,7 @@ GET http://localhost:3001/universites/550e8400-e29b-41d4-a716-446655440000
 
 **Example Request:**
 ```
-GET http://localhost:3001/universites/550e8400-e29b-41d4-a716-446655440000/followers/count
+GET https://universearch-9qle.onrender.com/universites/550e8400-e29b-41d4-a716-446655440000/followers/count
 ```
 
 **Response: 200 OK**
@@ -167,10 +132,7 @@ Content-Type: application/json
 
 **Example Request:**
 ```
-POST http://localhost:3001/universites/550e8400-e29b-41d4-a716-446655440000/follow
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-Content-Type: application/json
-```
+POST https://universearch-9qle.onrender.com/universites/550e8400-e29b-41d4-a716-446655440000/follow
 
 **Response: 201 Created**
 ```json
@@ -209,7 +171,7 @@ Authorization: Bearer {token}
 
 **Example Request:**
 ```
-DELETE http://localhost:3001/universites/550e8400-e29b-41d4-a716-446655440000/follow
+DELETE https://universearch-9qle.onrender.com/universites/550e8400-e29b-41d4-a716-446655440000/follow
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -241,7 +203,7 @@ Authorization: Bearer {token}
 
 **Example Request:**
 ```
-GET http://localhost:3001/universites/me/followed
+GET https://universearch-9qle.onrender.com/universites/me/followed
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -263,20 +225,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         "date_creation": "2025-01-15T00:00:00Z"
       }
     },
-    {
-      "followId": "660e8400-e29b-41d4-a716-446655440001",
-      "dateFollow": "2026-03-08T15:20:00Z",
-      "universite": {
-        "id": "550e8400-e29b-41d4-a716-446655440002",
-        "nom": "Université Alassane Ouattara",
-        "description": "Université moderne avec focus sur les sciences...",
-        "logo_url": "https://storage.example.com/logos/uao.png",
-        "lien_site": "https://www.uao.edu.ci",
-        "email": "contact@uao.ci",
-        "statut": "APPROVED",
-        "date_creation": "2025-02-10T00:00:00Z"
-      }
-    }
+    
   ],
   "count": 2
 }
@@ -301,7 +250,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Example Request:**
 ```
-GET http://localhost:3001/centres?limit=20&offset=0
+GET https://universearch-9qle.onrender.com/centres?limit=20&offset=0
 ```
 
 **Response: 200 OK**
@@ -321,40 +270,10 @@ GET http://localhost:3001/centres?limit=20&offset=0
     "date_creation": "2025-03-01T00:00:00Z",
     "profile_id": "880e8400-e29b-41d4-a716-446655440001"
   },
-  {
-    "id": "880e8400-e29b-41d4-a716-446655440002",
-    "nom": "Institut Technique de l'Informatique",
-    "description": "Institut spécialisé en informatique et technologies numériques.",
-    "email": "contact@iti.ci",
-    "lien_site": "https://www.iti.ci",
-    "logo_url": "https://storage.example.com/logos/iti.png",
-    "couverture_logo_url": "https://storage.example.com/covers/iti.jpg",
-    "domaine": "Informatique",
-    "statut": "APPROVED",
-    "video_url": null,
-    "date_creation": "2025-02-20T00:00:00Z",
-    "profile_id": "880e8400-e29b-41d4-a716-446655440003"
-  }
+  
 ]
 ```
 
-**Field Descriptions:**
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string (UUID) | ID unique du centre |
-| nom | string | Nom officiel |
-| description | string | Courte description |
-| email | string | Email de contact |
-| lien_site | string | URL du site officiel |
-| logo_url | string | URL du logo |
-| couverture_logo_url | string | URL de la couverture/bannière |
-| domaine | string | Domaine de formation |
-| statut | string | APPROVED, PENDING, REJECTED, SUSPENDED |
-| video_url | string \| null | URL vidéo de présentation |
-| date_creation | ISO 8601 | Date de création |
-| profile_id | string (UUID) | ID du profil associé |
-
----
 
 ### 2. Get Training Center by ID (Public)
 **GET** `/centres/:id`
@@ -366,7 +285,7 @@ GET http://localhost:3001/centres?limit=20&offset=0
 
 **Example Request:**
 ```
-GET http://localhost:3001/centres/880e8400-e29b-41d4-a716-446655440000
+GET https://universearch-9qle.onrender.com/centres/880e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response: 200 OK**
@@ -403,7 +322,7 @@ GET http://localhost:3001/centres/880e8400-e29b-41d4-a716-446655440000
 
 **Example Request:**
 ```
-GET http://localhost:3001/centres/880e8400-e29b-41d4-a716-446655440000/followers/count
+GET https://universearch-9qle.onrender.com/centres/880e8400-e29b-41d4-a716-446655440000/followers/count
 ```
 
 **Response: 200 OK**
@@ -437,7 +356,7 @@ Content-Type: application/json
 
 **Example Request:**
 ```
-POST http://localhost:3001/centres/880e8400-e29b-41d4-a716-446655440000/follow
+POST https://universearch-9qle.onrender.com/centres/880e8400-e29b-41d4-a716-446655440000/follow
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 ```
@@ -479,7 +398,7 @@ Authorization: Bearer {token}
 
 **Example Request:**
 ```
-DELETE http://localhost:3001/centres/880e8400-e29b-41d4-a716-446655440000/follow
+DELETE https://universearch-9qle.onrender.com/centres/880e8400-e29b-41d4-a716-446655440000/follow
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -511,7 +430,7 @@ Authorization: Bearer {token}
 
 **Example Request:**
 ```
-GET http://localhost:3001/centres/me/followed
+GET https://universearch-9qle.onrender.com/centres/me/followed
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
@@ -542,41 +461,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - `401 Unauthorized` - Token manquant ou invalide
 - `500 Internal Server Error` - Erreur serveur
 
----
-
-## 🔐 Authentication
-
-### Get Auth Token
-**POST** `/auth/login`
-
-**Headers:**
-```
-Content-Type: application/json
-```
-
-**Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response: 200 OK**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-  "user": {
-    "id": "770e8400-e29b-41d4-a716-446655440000",
-    "email": "user@example.com",
-    "nom": "John Doe",
-    "profile_type": "utilisateur"
-  }
-}
-```
-
----
-
 ## 📊 Common Response Structures
 
 ### Error Response
@@ -593,340 +477,6 @@ GET /universites?limit=10&offset=20
 - `limit`: Nombre d'items (default: 20)
 - `offset`: Nombre d'items à sauter (default: 0)
 
----
-
-## 🎯 Flutter Implementation Example
-
-### Model Classes
-```dart
-// Modèle Université
-class Universite {
-  final String id;
-  final String nom;
-  final String description;
-  final String email;
-  final String? lienSite;
-  final String? logoUrl;
-  final String? couvertureLogoUrl;
-  final String domaine;
-  final String statut;
-  final DateTime dateCreation;
-  final String? sigle;
-  final int? anneeFondation;
-
-  Universite({
-    required this.id,
-    required this.nom,
-    required this.description,
-    required this.email,
-    this.lienSite,
-    this.logoUrl,
-    this.couvertureLogoUrl,
-    required this.domaine,
-    required this.statut,
-    required this.dateCreation,
-    this.sigle,
-    this.anneeFondation,
-  });
-
-  factory Universite.fromJson(Map<String, dynamic> json) {
-    return Universite(
-      id: json['id'],
-      nom: json['nom'],
-      description: json['description'],
-      email: json['email'],
-      lienSite: json['lien_site'],
-      logoUrl: json['logo_url'],
-      couvertureLogoUrl: json['couverture_logo_url'],
-      domaine: json['domaine'],
-      statut: json['statut'],
-      dateCreation: DateTime.parse(json['date_creation']),
-      sigle: json['sigle'],
-      anneeFondation: json['annee_fondation'],
-    );
-  }
-}
-
-// Modèle Centre de Formation
-class Centre {
-  final String id;
-  final String nom;
-  final String description;
-  final String email;
-  final String? lienSite;
-  final String? logoUrl;
-  final String? couvertureLogoUrl;
-  final String domaine;
-  final String statut;
-  final DateTime dateCreation;
-
-  Centre({
-    required this.id,
-    required this.nom,
-    required this.description,
-    required this.email,
-    this.lienSite,
-    this.logoUrl,
-    this.couvertureLogoUrl,
-    required this.domaine,
-    required this.statut,
-    required this.dateCreation,
-  });
-
-  factory Centre.fromJson(Map<String, dynamic> json) {
-    return Centre(
-      id: json['id'],
-      nom: json['nom'],
-      description: json['description'],
-      email: json['email'],
-      lienSite: json['lien_site'],
-      logoUrl: json['logo_url'],
-      couvertureLogoUrl: json['couverture_logo_url'],
-      domaine: json['domaine'],
-      statut: json['statut'],
-      dateCreation: DateTime.parse(json['date_creation']),
-    );
-  }
-}
-
-// Modèle Follow
-class Follow {
-  final String followId;
-  final DateTime dateFollow;
-  final dynamic institution; // Universite ou Centre
-
-  Follow({
-    required this.followId,
-    required this.dateFollow,
-    required this.institution,
-  });
-}
-```
-
-### API Service
-```dart
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-class UniverseArchApiService {
-  static const String baseUrl = 'http://localhost:3001';
-  String? token;
-
-  // Récupérer toutes les universités
-  Future<List<Universite>> getUniversities({
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/universites?limit=$limit&offset=$offset'),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Universite.fromJson(json)).toList();
-      } else {
-        throw Exception('Échec du chargement des universités: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Récupérer une université par ID
-  Future<Universite> getUniversite(String id) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/universites/$id'),
-      );
-
-      if (response.statusCode == 200) {
-        return Universite.fromJson(json.decode(response.body));
-      } else {
-        throw Exception('Échec du chargement de l\'université: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Suivre une université
-  Future<void> followUniversite(String universiteId) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/universites/$universiteId/follow'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode != 201) {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Échec du suivi');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Arrêter de suivre une université
-  Future<void> unfollowUniversite(String universiteId) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/universites/$universiteId/follow'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode != 200) {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Échec de l\'arrêt du suivi');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Récupérer mes universités suivies
-  Future<List<Follow>> getMyFollowedUniversities() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/universites/me/followed'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List<dynamic> data = json['data'];
-        return data
-            .map((item) => Follow(
-              followId: item['followId'],
-              dateFollow: DateTime.parse(item['dateFollow']),
-              institution: Universite.fromJson(item['universite']),
-            ))
-            .toList();
-      } else {
-        throw Exception('�chec du chargement des universit�s suivies');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Récupérer tous les centres de formation
-  Future<List<Centre>> getCentres({
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/centres?limit=$limit&offset=$offset'),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Centre.fromJson(json)).toList();
-      } else {
-        throw Exception('�chec du chargement des centres: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Récupérer un centre par ID
-  Future<Centre> getCentre(String id) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/centres/$id'),
-      );
-
-      if (response.statusCode == 200) {
-        return Centre.fromJson(json.decode(response.body));
-      } else {
-        throw Exception('Échec du chargement du centre: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Suivre un centre de formation
-  Future<void> followCentre(String centreId) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/centres/$centreId/follow'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode != 201) {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Échec du suivi');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Arrêter de suivre un centre de formation
-  Future<void> unfollowCentre(String centreId) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/centres/$centreId/follow'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      if (response.statusCode != 200) {
-        final error = json.decode(response.body);
-        throw Exception(error['error'] ?? 'Échec de l\'arrêt du suivi');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-
-  // Récupérer mes centres suivis
-  Future<List<Follow>> getMyFollowedCentres() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/centres/me/followed'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List<dynamic> data = json['data'];
-        return data
-            .map((item) => Follow(
-              followId: item['followId'],
-              dateFollow: DateTime.parse(item['dateFollow']),
-              institution: Centre.fromJson(item['centre']),
-            ))
-            .toList();
-      } else {
-        throw Exception('Échec du chargement des centres suivis');
-      }
-    } catch (e) {
-      throw Exception('Erreur: $e');
-    }
-  }
-}
-```
-
----
 
 ## HTTP Status Codes
 
@@ -963,6 +513,4 @@ DELETE /centres/:id/follow
 GET    /centres/me/followed
 ```
 
----
 
-**Happy coding! 🚀**

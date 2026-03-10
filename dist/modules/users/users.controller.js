@@ -80,6 +80,20 @@ class UsersController {
         }
     };
     /**
+     * GET /users/count
+     * Retourne le nombre total d'utilisateurs
+     */
+    getUserCount = async (request, reply) => {
+        try {
+            const count = await this.service.getUserCount();
+            reply.status(200).send({ success: true, count });
+        }
+        catch (error) {
+            request.log.error(error);
+            reply.status(500).send({ success: false, error: error.message });
+        }
+    };
+    /**
      * DELETE /users/:id
      * Supprime un utilisateur
      */

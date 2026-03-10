@@ -5,7 +5,7 @@ import { incCounter, recordTiming } from './metrics';
  * Middleware `authorize(allowedRoles)`
  * - Vérifie que `request.user` existe (doit être précédé par `authenticate`)
  * - Vérifie que `request.user.role` fait partie des `allowedRoles`
- * - Pour les universités et centres de formation: vérifie que le statut est APPROVED
+ * - Pour les universités et centres de formation: vérifie que le statut est APPROVED ou PENDING
  * - Retourne 403 si rôle non autorisé ou statut non approuvé
  */
 const SUPPORTED_ROLES = new Set(['superviseur', 'admin', 'universite', 'bde', 'utilisateur', 'centre_formation']);
@@ -74,7 +74,7 @@ export const authorize = (allowedRoles: string[]) => {
             });
           }
 
-          if (data.statut !== 'APPROVED') {
+          if (data.statut !== 'APPROVED' && data.statut !== 'PENDING') {
             incCounter('authorize.not_approved');
             request.log?.info(
               { userId, role, statut: data.statut },

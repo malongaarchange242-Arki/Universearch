@@ -38,7 +38,7 @@ export const adminRoutes = async (
       // Authentification: tous les utilisateurs doivent avoir un token valide
       fastify.addHook('preHandler', authenticate);
 
-      // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder
+      // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder aux universités
       fastify.addHook(
         'preHandler',
         authorize(['admin', 'superviseur'])
@@ -75,6 +75,17 @@ export const adminRoutes = async (
         { schema: listPendingUniversitesSchema },
         (req, reply) => controller.listPendingUniversites(req, reply)
       );
+    }
+  );
+
+  // Routes pour centres, accessibles aussi par centre_formation
+  await app.register(
+    async function (fastify) {
+      fastify.addHook('preHandler', authenticate);
+      fastify.addHook(
+        'preHandler',
+        authorize(['admin', 'superviseur', 'centre_formation'])
+      );
 
       /**
        * ========== CENTRES DE FORMATION ==========
@@ -107,8 +118,18 @@ export const adminRoutes = async (
         { schema: listPendingCentresSchema },
         (req, reply) => controller.listPendingCentres(req, reply)
       );
+    }
+  );
 
-      // Dashboard stats (aggregated counts)
+  // Stats dashboard, admin only
+  await app.register(
+    async function (fastify) {
+      fastify.addHook('preHandler', authenticate);
+      fastify.addHook(
+        'preHandler',
+        authorize(['admin', 'superviseur'])
+      );
+
       fastify.get(
         '/dashboard/stats',
         { schema: dashboardStatsSchema },

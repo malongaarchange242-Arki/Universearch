@@ -10,8 +10,9 @@ const universitePublicProperties = {
   sigle: { type: 'string' },
   annee_fondation: { type: 'integer' },
   description: { type: 'string' },
+  contacts: { type: 'string' },
   email: { type: 'string' },
-  statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
+  statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] },
   logo_url: { type: 'string' },
   couverture_logo_url: { type: 'string' },
   lien_site: { type: 'string' },
@@ -20,6 +21,25 @@ const universitePublicProperties = {
   date_creation: { type: 'string' },
   created_at: { type: 'string' },
   updated_at: { type: 'string' },
+  domaines: {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string' },
+        filieres: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              nom: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  },
 };
 
 export const getMyUniversiteSchema = {
@@ -41,8 +61,7 @@ export const updateMyUniversiteSchema = {
       nom: { type: 'string' },
       sigle: { type: 'string' },
       annee_fondation: { type: 'integer' },
-      description: { type: 'string' },
-      email: { type: 'string' },
+      description: { type: 'string' },      contacts: { type: 'string' },      email: { type: 'string' },
       logo_url: { type: 'string' },
       couverture_logo_url: { type: 'string' },
       lien_site: { type: 'string' },

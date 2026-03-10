@@ -27,9 +27,11 @@ const universitesRoutes = async (app, _options) => {
     // Routes protégées (authentification + autorisation UNIVERSITE + vérification APPROVED)
     await app.register(async function (fastify) {
         fastify.addHook('preHandler', middleware_1.authenticate);
-        fastify.addHook('preHandler', (0, middleware_1.authorize)(['universite']));
+        fastify.addHook('preHandler', (0, middleware_1.authorize)(['universite', 'admin']));
         fastify.get('/me', { schema: universites_schema_1.getMyUniversiteSchema }, (req, reply) => controller.getMyUniversite(req, reply));
         fastify.put('/me', { schema: universites_schema_1.updateMyUniversiteSchema }, (req, reply) => controller.updateMyUniversite(req, reply));
+        // Attach multiple filières to my université
+        fastify.post('/me/filieres', { schema: universites_schema_1.attachFilieresSchema }, (req, reply) => controller.attachFilieresToMyUniversite(req, reply));
         // Upload logo for my université
         fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
     });

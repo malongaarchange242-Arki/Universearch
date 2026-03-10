@@ -13,6 +13,8 @@ const authRoutes = async (app, _options) => {
     app.post('/register', { schema: auth_schema_1.registerSchema }, auth_controller_1.registerHandler);
     // Connexion
     app.post('/login', { schema: auth_schema_1.loginSchema }, auth_controller_1.loginHandler);
+    // Vérification d'email avant affichage du champ mot de passe
+    app.post('/check-email', { schema: auth_schema_1.checkEmailSchema }, auth_controller_1.checkEmailHandler);
     // Déconnexion (protégée)
     app.post('/logout', { preHandler: [middleware_1.authenticate] }, auth_controller_1.logoutHandler);
 };

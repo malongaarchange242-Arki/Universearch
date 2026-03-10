@@ -11,6 +11,47 @@ class AdminService {
         this.supabase = supabase;
     }
     /**
+     * Retourne des statistiques agrégées pour le dashboard admin
+     */
+    async getDashboardStats() {
+        // Universités counts
+        const totalUnisRes = await this.supabase.from('universites').select('*', { count: 'exact', head: true });
+        if (totalUnisRes.error)
+            throw new Error(totalUnisRes.error.message);
+        const totalUnis = totalUnisRes.count ?? 0;
+        const approvedUnisRes = await this.supabase.from('universites').select('*', { count: 'exact', head: true }).eq('statut', 'APPROVED');
+        if (approvedUnisRes.error)
+            throw new Error(approvedUnisRes.error.message);
+        const approvedUnis = approvedUnisRes.count ?? 0;
+        const pendingUnisRes = await this.supabase.from('universites').select('*', { count: 'exact', head: true }).eq('statut', 'PENDING');
+        if (pendingUnisRes.error)
+            throw new Error(pendingUnisRes.error.message);
+        const pendingUnis = pendingUnisRes.count ?? 0;
+        // Centres counts
+        const totalCentresRes = await this.supabase.from('centres_formation').select('*', { count: 'exact', head: true });
+        if (totalCentresRes.error)
+            throw new Error(totalCentresRes.error.message);
+        const totalCentres = totalCentresRes.count ?? 0;
+        const approvedCentresRes = await this.supabase.from('centres_formation').select('*', { count: 'exact', head: true }).eq('statut', 'APPROVED');
+        if (approvedCentresRes.error)
+            throw new Error(approvedCentresRes.error.message);
+        const approvedCentres = approvedCentresRes.count ?? 0;
+        const pendingCentresRes = await this.supabase.from('centres_formation').select('*', { count: 'exact', head: true }).eq('statut', 'PENDING');
+        if (pendingCentresRes.error)
+            throw new Error(pendingCentresRes.error.message);
+        const pendingCentres = pendingCentresRes.count ?? 0;
+        // Utilisateurs (profiles)
+        const usersRes = await this.supabase.from('profiles').select('*', { count: 'exact', head: true });
+        if (usersRes.error)
+            throw new Error(usersRes.error.message);
+        const usersTotal = usersRes.count ?? 0;
+        return {
+            universites: { total: totalUnis, approved: approvedUnis, pending: pendingUnis },
+            centres: { total: totalCentres, approved: approvedCentres, pending: pendingCentres },
+            utilisateurs: { total: usersTotal },
+        };
+    }
+    /**
      * Approuver une université
      */
     async approveUniversite(id) {

@@ -7,6 +7,8 @@ const supabase_1 = require("../../plugins/supabase"); // use exported admin clie
 const middleware_1 = require("../../middleware");
 const usersRoutes = async (app, _options) => {
     const controller = new users_controller_1.UsersController(supabase_1.supabaseAdmin);
+    // Public route for user count (for dashboard stats)
+    app.get('/users/count', async (req, reply) => controller.getUserCount(req, reply));
     // Routes utilisateurs
     // - GET /users/:id -> authentifié (user lui-même, admin ou superviseur). Authorization fine-grained handled in controller/service.
     app.get('/users/:id', { preHandler: [middleware_1.authenticate] }, async (req, reply) => controller.getUser(req, reply));

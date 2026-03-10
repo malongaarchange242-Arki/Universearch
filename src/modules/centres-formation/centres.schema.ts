@@ -9,15 +9,36 @@ const centrePublicProperties = {
   nom: { type: 'string' },
   description: { type: 'string' },
   email: { type: 'string' },
+  contacts: { type: 'string' },
   statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
   logo_url: { type: 'string' },
   couverture_logo_url: { type: 'string' },
   lien_site: { type: 'string' },
-  domaine: { type: 'string' },
   video_url: { type: 'string' },
   date_creation: { type: 'string' },
   created_at: { type: 'string' },
   updated_at: { type: 'string' },
+  sigle: { type: 'string' },
+  annee_fondation: { type: 'integer' },
+  domaines: {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        nom: { type: 'string' },
+        filieres: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              nom: { type: 'string' }
+            }
+          }
+        }
+      }
+    }
+  },
 };
 
 export const getMyCentreSchema = {
@@ -39,11 +60,22 @@ export const updateMyCentreSchema = {
       nom: { type: 'string' },
       description: { type: 'string' },
       email: { type: 'string' },
+      contacts: { type: 'string' },
       logo_url: { type: 'string' },
       couverture_logo_url: { type: 'string' },
       lien_site: { type: 'string' },
-      domaine: { type: 'string' },
       video_url: { type: 'string' },
+      sigle: { type: 'string' },
+      annee_fondation: { type: 'integer' },
+
+      // 🔹 AJOUT IMPORTANT
+      selectedFilieres: {
+        type: 'array',
+        items: {
+          type: 'string',
+          format: 'uuid'
+        }
+      }
     },
     additionalProperties: false,
   },

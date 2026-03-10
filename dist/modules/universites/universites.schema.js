@@ -3,24 +3,53 @@
  * Schémas de validation pour les opérations sur les universités.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listUniversitesSchema = exports.getUniversiteByIdSchema = exports.updateMyUniversiteSchema = exports.getMyUniversiteSchema = void 0;
+exports.attachFilieresSchema = exports.listUniversitesSchema = exports.getUniversiteByIdSchema = exports.updateMyUniversiteSchema = exports.getMyUniversiteSchema = void 0;
+// 🔹 Propriétés communes d'une université publique
+const universitePublicProperties = {
+    id: { type: 'string' },
+    profile_id: { type: 'string' },
+    nom: { type: 'string' },
+    sigle: { type: 'string' },
+    annee_fondation: { type: 'integer' },
+    description: { type: 'string' },
+    contacts: { type: 'string' },
+    email: { type: 'string' },
+    statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] },
+    logo_url: { type: 'string' },
+    couverture_logo_url: { type: 'string' },
+    lien_site: { type: 'string' },
+    domaine: { type: 'string' },
+    video_url: { type: 'string' },
+    date_creation: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    domaines: {
+        type: 'array',
+        items: {
+            type: 'object',
+            properties: {
+                nom: { type: 'string' },
+                filieres: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            id: { type: 'string' },
+                            nom: { type: 'string' }
+                        }
+                    }
+                }
+            }
+        }
+    },
+};
 exports.getMyUniversiteSchema = {
     tags: ['Universités'],
     response: {
         200: {
             type: 'object',
-            properties: {
-                id: { type: 'string' },
-                nom: { type: 'string' },
-                description: { type: 'string' },
-                email: { type: 'string' },
-                statut: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] },
-                logo_url: { type: 'string' },
-                couverture_logo_url: { type: 'string' },
-                lien_site: { type: 'string' },
-                domaine: { type: 'string' },
-                video_url: { type: 'string' },
-            },
+            properties: universitePublicProperties,
+            additionalProperties: false,
         },
     },
 };
@@ -32,23 +61,20 @@ exports.updateMyUniversiteSchema = {
             nom: { type: 'string' },
             sigle: { type: 'string' },
             annee_fondation: { type: 'integer' },
-            description: { type: 'string' },
-            email: { type: 'string' },
+            description: { type: 'string' }, contacts: { type: 'string' }, email: { type: 'string' },
             logo_url: { type: 'string' },
             couverture_logo_url: { type: 'string' },
             lien_site: { type: 'string' },
             domaine: { type: 'string' },
             video_url: { type: 'string' },
         },
+        additionalProperties: false,
     },
     response: {
         200: {
             type: 'object',
-            properties: {
-                id: { type: 'string' },
-                nom: { type: 'string' },
-                updated_at: { type: 'string' },
-            },
+            properties: universitePublicProperties,
+            additionalProperties: false,
         },
     },
 };
@@ -64,6 +90,8 @@ exports.getUniversiteByIdSchema = {
     response: {
         200: {
             type: 'object',
+            properties: universitePublicProperties,
+            additionalProperties: false,
         },
     },
 };
@@ -75,11 +103,42 @@ exports.listUniversitesSchema = {
             limit: { type: 'integer', default: 20 },
             offset: { type: 'integer', default: 0 },
         },
+        additionalProperties: false,
     },
     response: {
         200: {
             type: 'array',
-            items: { type: 'object' },
+            items: {
+                type: 'object',
+                properties: universitePublicProperties,
+                additionalProperties: false,
+            },
         },
     },
+};
+exports.attachFilieresSchema = {
+    tags: ['Universités'],
+    body: {
+        type: 'object',
+        properties: {
+            filiereIds: { type: 'array', items: { type: 'string', format: 'uuid' } }
+        },
+        required: ['filiereIds'],
+        additionalProperties: false,
+    },
+    response: {
+        200: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean' },
+                data: {
+                    type: 'object',
+                    properties: {
+                        inserted: { type: 'integer' },
+                        skipped: { type: 'array', items: { type: 'string' } }
+                    }
+                }
+            }
+        }
+    }
 };

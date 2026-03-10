@@ -9,6 +9,22 @@ export class CentresController {
   constructor(private service: CentresService) {}
 
   /**
+   * GET /centres/filieres
+   * Lister toutes les filières centre
+   */
+  async listFilieresCentre(_req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const filieres = await this.service.listFilieresCentre();
+      return reply.status(200).send(filieres);
+    } catch (err) {
+      _req.log.error(err);
+      return reply.status(500).send({
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /**
    * GET /centres/me
    * Récupérer mes infos centre
    */

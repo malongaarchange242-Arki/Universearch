@@ -49,7 +49,7 @@ export const universitesRoutes = async (
   await app.register(
     async function (fastify) {
       fastify.addHook('preHandler', authenticate);
-      fastify.addHook('preHandler', authorize(['universite']));
+      fastify.addHook('preHandler', authorize(['universite', 'admin']));
 
       fastify.get(
         '/me',

@@ -23,11 +23,12 @@ const centresRoutes = async (app, _options) => {
     // Routes publiques (sans authentification)
     app.post('/', (req, reply) => controller.createCentre(req, reply));
     app.get('/', { schema: centres_schema_1.listCentresSchema }, (req, reply) => controller.listApprovedCentres(req, reply));
+    app.get('/filieres', (req, reply) => controller.listFilieresCentre(req, reply));
     app.get('/:id', { schema: centres_schema_1.getCentreByIdSchema }, (req, reply) => controller.getCentreById(req, reply));
     // Routes protégées (authentification + autorisation CENTRE_FORMATION + vérification APPROVED)
     await app.register(async function (fastify) {
         fastify.addHook('preHandler', middleware_1.authenticate);
-        fastify.addHook('preHandler', (0, middleware_1.authorize)(['centre_formation']));
+        fastify.addHook('preHandler', (0, middleware_1.authorize)(['centre_formation', 'admin']));
         fastify.get('/me', { schema: centres_schema_1.getMyCentreSchema }, (req, reply) => controller.getMyCentre(req, reply));
         fastify.put('/me', { schema: centres_schema_1.updateMyCentreSchema }, (req, reply) => controller.updateMyCentre(req, reply));
         // Upload logo for caller's centre

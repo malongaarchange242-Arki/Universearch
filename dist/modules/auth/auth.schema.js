@@ -7,7 +7,7 @@
  * Aucun traitement métier ici.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loginSchema = exports.registerSchema = void 0;
+exports.checkEmailSchema = exports.loginSchema = exports.registerSchema = void 0;
 exports.registerSchema = {
     body: {
         type: 'object',
@@ -96,6 +96,15 @@ exports.loginSchema = {
                 type: 'string',
                 minLength: 8
             }
+        }
+    }
+};
+exports.checkEmailSchema = {
+    body: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+            email: { type: 'string', format: 'email' }
         }
     }
 };

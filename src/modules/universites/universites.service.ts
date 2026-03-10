@@ -10,8 +10,11 @@ export interface UniversiteRecord {
   profile_id: string;
   nom: string;
   description?: string;
+  sigle?: string;
+  annee_fondation?: number;
+  contacts?: string | null;
   email?: string;
-  statut: 'PENDING' | 'APPROVED' | 'REJECTED';
+  statut: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   logo_url?: string;
   couverture_logo_url?: string;
   lien_site?: string;
@@ -19,6 +22,13 @@ export interface UniversiteRecord {
   video_url?: string;
   date_creation: string;
   updated_at?: string;
+  domaines?: Array<{
+    nom: string;
+    filieres: Array<{
+      id: string;
+      nom: string;
+    }>;
+  }>;
 }
 
 export class UniversitesService {
@@ -54,6 +64,9 @@ export class UniversitesService {
         profile_id: profileId,
         nom: payload.nom ?? null,
         description: payload.description ?? null,
+        sigle: (payload as any).sigle ?? null,
+        annee_fondation: (payload as any).annee_fondation ?? null,
+        contacts: (payload as any).contacts ?? null,
         email: payload.email ?? null,
         statut: (payload.statut as any) ?? 'PENDING',
         logo_url: payload.logo_url ?? null,
@@ -90,7 +103,32 @@ export class UniversitesService {
       throw new Error(`Failed to get my université: ${error.message}`);
     }
 
-    return data || null;
+    if (!data) return null;
+
+    // Add domaines and filieres
+    return await this.addDomainesToUniversite(data);
+  }
+
+  /**
+   * Récupérer une université par ID (pour accès public, seulement approuvées)
+   */
+  async getUniversiteById(id: string): Promise<UniversiteRecord | null> {
+    const { data, error } = await this.supabase
+      .from('universites')
+      .select('*')
+      .eq('id', id)
+      .eq('statut', 'APPROVED')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = not found
+      throw new Error(`Failed to get université: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    // Add domaines and filieres
+    return await this.addDomainesToUniversite(data);
   }
 
   /**
@@ -98,7 +136,7 @@ export class UniversitesService {
    */
   async updateMyUniversite(
     userId: string,
-    payload: Partial<UniversiteRecord>
+    payload: Partial<UniversiteRecord> & { selectedFilieres?: string[] }
   ): Promise<UniversiteRecord> {
     // Interdire la modification du statut via cette route
     const { statut, profile_id, id, date_creation, selectedFilieres, ...updateData } = payload as any;
@@ -115,54 +153,139 @@ export class UniversitesService {
         updated_at: new Date().toISOString(),
       })
       .eq('profile_id', userId)
-      .select('*')
-      .single();
+      .select('*');
 
     if (error) {
       throw new Error(`Failed to update my université: ${error.message}`);
     }
 
-    if (!data) {
-      throw new Error('Université not found');
+    if (!data || data.length === 0) {
+      // Université not found, create it
+      const uniId = randomUUID();
+      const insertPayload = {
+        id: uniId,
+        profile_id: userId,
+        nom: updateData.nom || null,
+        description: updateData.description || null,
+        sigle: updateData.sigle || null,
+        annee_fondation: updateData.annee_fondation || null,
+        contacts: updateData.contacts || null,
+        email: updateData.email || null,
+        statut: 'PENDING',
+        logo_url: updateData.logo_url || null,
+        couverture_logo_url: updateData.couverture_logo_url || null,
+        lien_site: updateData.lien_site || null,
+        domaine: updateData.domaine || null,
+        video_url: updateData.video_url || null,
+        date_creation: new Date().toISOString(),
+        ...updateData,
+      };
+
+      const { data: insertData, error: insertError } = await this.supabase
+        .from('universites')
+        .insert(insertPayload)
+        .select('*')
+        .single();
+
+      if (insertError) {
+        throw new Error(`Failed to create université: ${insertError.message}`);
+      }
+
+      return insertData;
     }
 
-    return data;
+    return data[0];
   }
 
   /**
-   * Récupérer une université par ID (info publiques, seulement si APPROVED)
+   * Helper method to add domaines and filieres to a universite record
    */
-  async getUniversiteById(id: string): Promise<UniversiteRecord | null> {
-    const { data, error } = await this.supabase
-      .from('universites')
-      .select('*')
-      .eq('id', id)
-      .eq('statut', 'APPROVED') // Seulement les approuvées
-      .single();
+  private async addDomainesToUniversite(universite: any): Promise<UniversiteRecord> {
+    // Get filieres for this universite
+    const { data: filiereData, error: filError } = await this.supabase
+      .from('universite_filieres')
+      .select(`
+        filieres!inner(
+          id,
+          nom,
+          domaines!inner(
+            nom
+          )
+        )
+      `)
+      .eq('universite_id', universite.id);
 
-    if (error && error.code !== 'PGRST116') {
-      throw new Error(`Failed to get université: ${error.message}`);
+    if (filError) {
+      throw new Error(`Failed to fetch filieres for universite: ${filError.message}`);
     }
 
-    return data || null;
+    // Group filieres by domaine
+    const domainesMap = new Map<string, { nom: string; filieres: Array<{ id: string; nom: string }> }>();
+
+    (filiereData || []).forEach((row: any) => {
+      if (row.filieres && row.filieres.domaines) {
+        const domaineNom = row.filieres.domaines.nom;
+        if (!domainesMap.has(domaineNom)) {
+          domainesMap.set(domaineNom, { nom: domaineNom, filieres: [] });
+        }
+        domainesMap.get(domaineNom)!.filieres.push({
+          id: row.filieres.id,
+          nom: row.filieres.nom
+        });
+      }
+    });
+
+    // Sort filieres within each domaine
+    Array.from(domainesMap.values()).forEach(domaine => {
+      domaine.filieres.sort((a, b) => a.nom.localeCompare(b.nom));
+    });
+
+    return {
+      id: universite.id,
+      profile_id: universite.profile_id,
+      nom: universite.nom,
+      description: universite.description,
+      sigle: universite.sigle,
+      annee_fondation: universite.annee_fondation,
+      contacts: universite.contacts,
+      email: universite.email,
+      statut: universite.statut,
+      logo_url: universite.logo_url,
+      couverture_logo_url: universite.couverture_logo_url,
+      lien_site: universite.lien_site,
+      domaine: universite.domaine,
+      video_url: universite.video_url,
+      date_creation: universite.date_creation,
+      updated_at: universite.updated_at,
+      domaines: Array.from(domainesMap.values()).sort((a, b) => a.nom.localeCompare(b.nom))
+    };
   }
 
   /**
-   * Lister toutes les universités approuvées
+   * Lister toutes les universités approuvées avec leurs domaines et filières
    */
   async listApprovedUniversites(limit = 20, offset = 0): Promise<UniversiteRecord[]> {
-    const { data, error } = await this.supabase
+    // Get the universites
+    const { data: universites, error: uniError } = await this.supabase
       .from('universites')
       .select('*')
-      .eq('statut', 'APPROVED')
+      .in('statut', ['APPROVED', 'PENDING'])
       .order('date_creation', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) {
-      throw new Error(`Failed to list universités: ${error.message}`);
+    if (uniError) {
+      throw new Error(`Failed to list universités: ${uniError.message}`);
     }
 
-    return data || [];
+    if (!universites || universites.length === 0) {
+      return [];
+    }
+
+    // Add domaines to each universite
+    const resultPromises = universites.map(universite => this.addDomainesToUniversite(universite));
+    const result = await Promise.all(resultPromises);
+
+    return result;
   }
 
   /**

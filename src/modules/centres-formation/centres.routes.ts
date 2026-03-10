@@ -39,6 +39,11 @@ export const centresRoutes = async (
   );
 
   app.get(
+    '/filieres',
+    (req, reply) => controller.listFilieresCentre(req, reply)
+  );
+
+  app.get(
     '/:id',
     { schema: getCentreByIdSchema },
     (req, reply) => controller.getCentreById(req, reply)
@@ -48,7 +53,7 @@ export const centresRoutes = async (
   await app.register(
     async function (fastify) {
       fastify.addHook('preHandler', authenticate);
-      fastify.addHook('preHandler', authorize(['centre_formation']));
+      fastify.addHook('preHandler', authorize(['centre_formation', 'admin']));
 
       fastify.get(
         '/me',

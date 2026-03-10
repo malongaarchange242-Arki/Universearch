@@ -57,4 +57,15 @@ export class UsersService {
       throw new Error(`Failed to delete user id=${id}: ${(err as Error).message}`);
     }
   }
+
+  /**
+   * Retourne le nombre total d'utilisateurs.
+   */
+  async getUserCount(): Promise<number> {
+    try {
+      return await this.repo.count();
+    } catch (err) {
+      throw new Error(`Failed to count users: ${(err as Error).message}`);
+    }
+  }
 }

@@ -33,7 +33,7 @@ class UniversitesController {
     }
     /**
      * PUT /universites/me
-     * Mettre à jour mes infos université
+     * Mettre à jour mes infos université (nom, description, sigle, annee_fondation, contacts, lien_site, logo, domaine, etc.)
      */
     async updateMyUniversite(req, reply) {
         try {
@@ -50,6 +50,27 @@ class UniversitesController {
             reply.status(400).send({
                 error: err.message,
             });
+        }
+    }
+    /**
+     * POST /universites/me/filieres
+     * Attacher plusieurs filières à l'université de l'utilisateur connecté.
+     * Body: { filiereIds: string[] }
+     */
+    async attachFilieresToMyUniversite(req, reply) {
+        try {
+            const userId = req.user.id;
+            const body = req.body;
+            const filiereIds = Array.isArray(body && body.filiereIds) ? body.filiereIds : [];
+            if (!filiereIds.length) {
+                return reply.status(400).send({ error: 'filiereIds is required' });
+            }
+            const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds);
+            reply.status(200).send({ success: true, data: result });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({ error: err.message });
         }
     }
     /**

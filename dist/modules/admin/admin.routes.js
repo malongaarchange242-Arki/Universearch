@@ -22,7 +22,7 @@ const adminRoutes = async (app, _options) => {
     await app.register(async function (fastify) {
         // Authentification: tous les utilisateurs doivent avoir un token valide
         fastify.addHook('preHandler', middleware_1.authenticate);
-        // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder
+        // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder aux universités
         fastify.addHook('preHandler', (0, middleware_1.authorize)(['admin', 'superviseur']));
         /**
          * ========== UNIVERSITÉS ==========
@@ -35,6 +35,11 @@ const adminRoutes = async (app, _options) => {
         fastify.patch('/universites/:id/reject', { schema: admin_schema_1.rejectUniversiteSchema }, (req, reply) => controller.rejectUniversite(req, reply));
         // Lister les universités en attente
         fastify.get('/universites/pending', { schema: admin_schema_1.listPendingUniversitesSchema }, (req, reply) => controller.listPendingUniversites(req, reply));
+    });
+    // Routes pour centres, accessibles aussi par centre_formation
+    await app.register(async function (fastify) {
+        fastify.addHook('preHandler', middleware_1.authenticate);
+        fastify.addHook('preHandler', (0, middleware_1.authorize)(['admin', 'superviseur', 'centre_formation']));
         /**
          * ========== CENTRES DE FORMATION ==========
          */
@@ -46,6 +51,12 @@ const adminRoutes = async (app, _options) => {
         fastify.patch('/centres/:id/reject', { schema: admin_schema_1.rejectCentreSchema }, (req, reply) => controller.rejectCentre(req, reply));
         // Lister les centres en attente
         fastify.get('/centres/pending', { schema: admin_schema_1.listPendingCentresSchema }, (req, reply) => controller.listPendingCentres(req, reply));
+    });
+    // Stats dashboard, admin only
+    await app.register(async function (fastify) {
+        fastify.addHook('preHandler', middleware_1.authenticate);
+        fastify.addHook('preHandler', (0, middleware_1.authorize)(['admin', 'superviseur']));
+        fastify.get('/dashboard/stats', { schema: admin_schema_1.dashboardStatsSchema }, (req, reply) => controller.dashboardStats(req, reply));
     });
 };
 exports.adminRoutes = adminRoutes;
