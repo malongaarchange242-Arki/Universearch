@@ -45,7 +45,7 @@ export const authorize = (allowedRoles: string[]) => {
 
       if (!allowedSet.has(role)) {
         incCounter('authorize.forbidden');
-        request.log?.info({ userId: (request.user as any).id, role }, 'authorize: insufficient privileges');
+        request.log?.info({ userId: (request.user as any).id, role, allowedRoles: Array.from(allowedSet) }, 'authorize: insufficient privileges');
         return reply.status(403).send({ error: 'Forbidden: insufficient privileges' });
       }
 

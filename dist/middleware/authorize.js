@@ -39,7 +39,7 @@ const authorize = (allowedRoles) => {
             }
             if (!allowedSet.has(role)) {
                 (0, metrics_1.incCounter)('authorize.forbidden');
-                request.log?.info({ userId: request.user.id, role }, 'authorize: insufficient privileges');
+                request.log?.info({ userId: request.user.id, role, allowedRoles: Array.from(allowedSet) }, 'authorize: insufficient privileges');
                 return reply.status(403).send({ error: 'Forbidden: insufficient privileges' });
             }
             // 🔐 Vérification du statut APPROVED pour universités et centres de formation

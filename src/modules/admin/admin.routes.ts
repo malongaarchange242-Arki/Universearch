@@ -38,10 +38,10 @@ export const adminRoutes = async (
       // Authentification: tous les utilisateurs doivent avoir un token valide
       fastify.addHook('preHandler', authenticate);
 
-      // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder aux universités
+      // Autorisation: seuls les rôles 'admin', 'superviseur', et 'universite' peuvent accéder aux universités
       fastify.addHook(
         'preHandler',
-        authorize(['admin', 'superviseur'])
+        authorize(['admin', 'superviseur', 'universite'])
       );
 
       /**

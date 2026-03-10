@@ -22,8 +22,8 @@ const adminRoutes = async (app, _options) => {
     await app.register(async function (fastify) {
         // Authentification: tous les utilisateurs doivent avoir un token valide
         fastify.addHook('preHandler', middleware_1.authenticate);
-        // Autorisation: seuls les rôles 'admin' et 'superviseur' peuvent accéder aux universités
-        fastify.addHook('preHandler', (0, middleware_1.authorize)(['admin', 'superviseur']));
+        // Autorisation: seuls les rôles 'admin', 'superviseur', et 'universite' peuvent accéder aux universités
+        fastify.addHook('preHandler', (0, middleware_1.authorize)(['admin', 'superviseur', 'universite']));
         /**
          * ========== UNIVERSITÉS ==========
          */
