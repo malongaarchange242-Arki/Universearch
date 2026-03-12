@@ -30,6 +30,7 @@ export interface AuthResult {
   userId: string;
   email: string;
   token?: string | null;
+  userType?: 'bachelier' | 'etudiant' | 'parent';
 }
 
 export interface LoginResult {
@@ -167,24 +168,33 @@ export const registerUser = async (
       break;
   }
 
-  // After successful creation, attempt to sign in the new user to obtain a token
-  // only if the client provided a password (i.e. not the generated one).
-  if (payload.password) {
-    try {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: payload.email,
-        password: payload.password,
-      });
+  // After successful creation, sign in the new user to obtain a token.
+  // we use `generatedPwd` which is either the provided password or the random
+  // one we generated above. Signing in should always succeed unless something
+  // unexpected happened.
+  let token: string | null = null;
+  try {
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: payload.email,
+      password: generatedPwd,
+    });
 
-      if (!signInError && signInData.session && signInData.session.access_token) {
-        return { userId, email: payload.email, token: signInData.session.access_token };
-      }
-    } catch (e) {
-      // ignore sign-in errors; return without token
+    if (!signInError && signInData.session && signInData.session.access_token) {
+      token = signInData.session.access_token;
     }
+  } catch (e) {
+    // ignore sign-in errors; we'll just return without token
   }
 
-  return { userId, email: payload.email };
+  const result: AuthResult = { userId, email: payload.email };
+  if (token) {
+    result.token = token;
+  }
+  if (payload.userType) {
+    result.userType = payload.userType;
+  }
+
+  return result;
 };
 
 

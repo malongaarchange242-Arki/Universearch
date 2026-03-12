@@ -11,7 +11,6 @@ export const registerSchema = {
     type: 'object',
     required: [
       'email',
-      'password',
       'nom',
       'telephone',
       'profileType'
@@ -25,7 +24,7 @@ export const registerSchema = {
       password: {
         type: 'string',
         minLength: 8,
-        description: 'Mot de passe utilisateur'
+        description: 'Mot de passe utilisateur (optionnel, un mot de passe généré aléatoirement sera utilisé si absent)'
       },
       nom: {
         type: 'string',
