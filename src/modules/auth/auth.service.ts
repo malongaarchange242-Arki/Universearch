@@ -1,10 +1,11 @@
 // src/modules/auth/auth.service.ts
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 export interface RegisterPayload {
   email: string;
-  password: string;
+  password?: string; // Made optional
   nom: string;
   prenom?: string | null;
   telephone: string;
@@ -44,10 +45,16 @@ export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
+  // Supabase requires a password when creating an auth user. If the caller
+  // didn't provide one we generate a random secret; the frontend can then
+  // trigger a password reset flow or ignore it. We only attempt to sign in
+  // automatically when the password was explicitly given.
+  const generatedPwd = payload.password || crypto.randomUUID();
+
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
       email: payload.email,
-      password: payload.password,
+      password: generatedPwd,
       email_confirm: true,
     });
 
@@ -161,17 +168,20 @@ export const registerUser = async (
   }
 
   // After successful creation, attempt to sign in the new user to obtain a token
-  try {
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: payload.email,
-      password: payload.password,
-    });
+  // only if the client provided a password (i.e. not the generated one).
+  if (payload.password) {
+    try {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: payload.email,
+        password: payload.password,
+      });
 
-    if (!signInError && signInData.session && signInData.session.access_token) {
-      return { userId, email: payload.email, token: signInData.session.access_token };
+      if (!signInError && signInData.session && signInData.session.access_token) {
+        return { userId, email: payload.email, token: signInData.session.access_token };
+      }
+    } catch (e) {
+      // ignore sign-in errors; return without token
     }
-  } catch (e) {
-    // ignore sign-in errors; return without token
   }
 
   return { userId, email: payload.email };
