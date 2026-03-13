@@ -16,10 +16,20 @@ export class RepresentantController {
       }
 
       // Check if user is a centre (profile_type must be 'centre' or 'centre_formation')
+      const profileType = (user.profile_type || user.role || user.userType || '').toLowerCase();
       const isCentre =
-        user.profile_type === 'centre' ||
-        user.profile_type === 'centre_formation' ||
-        (user.userType || '').toLowerCase().includes('centre');
+        profileType === 'centre' ||
+        profileType === 'centre_formation' ||
+        profileType.includes('centre');
+
+      console.log('DEBUG createRepresentant:', { 
+        userId: user.id, 
+        profile_type: user.profile_type,
+        role: user.role,
+        userType: user.userType,
+        profileType,
+        isCentre 
+      });
 
       if (!isCentre) {
         return reply.status(403).send({

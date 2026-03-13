@@ -7,16 +7,42 @@ export const RepresentantSchemas = {
     tags: ['Representants'],
     body: {
       type: 'object',
-      required: ['fonction', 'centre_id'],
+      required: [],
       properties: {
+        nom: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 255,
+        },
         fonction: {
           type: 'string',
           minLength: 1,
           maxLength: 255,
         },
+        description: {
+          type: ['string', 'null'],
+        },
+        logo_url: {
+          type: ['string', 'null'],
+        },
+        video_url: {
+          type: ['string', 'null'],
+        },
         centre_id: {
-          type: 'string',
+          type: ['string', 'null'],
           format: 'uuid',
+        },
+        pres_firstname: {
+          type: ['string', 'null'],
+        },
+        pres_lastname: {
+          type: ['string', 'null'],
+        },
+        pres_phone: {
+          type: ['string', 'null'],
+        },
+        pres_email: {
+          type: ['string', 'null'],
         },
       },
     },
@@ -31,7 +57,8 @@ export const RepresentantSchemas = {
               id: { type: 'string', format: 'uuid' },
               centre_id: { type: 'string', format: 'uuid' },
               profile_id: { type: 'string', format: 'uuid' },
-              fonction: { type: 'string' },
+              nom: { type: ['string', 'null'] },
+              fonction: { type: ['string', 'null'] },
               statut: { type: 'string', enum: ['actif', 'inactif', 'suspendu'] },
               date_creation: { type: 'string', format: 'date-time' },
             },

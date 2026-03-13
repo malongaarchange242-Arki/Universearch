@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CreateBdeDto {
+  nom?: string;
   description?: string | null;
   logo_url?: string | null;
   video_url?: string | null;
@@ -53,6 +54,7 @@ export class BdeService {
           // Do not trust client-provided universite_id — use authenticated profileId
           universite_id: profileId,
           profile_id: profileId,
+          nom: data.nom || null,
           description: data.description || null,
           logo_url: data.logo_url || null,
           video_url: data.video_url || null,
