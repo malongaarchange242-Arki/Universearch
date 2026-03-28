@@ -7,13 +7,12 @@
  * Aucun traitement métier ici.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkEmailSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.updateSecuritySchema = exports.checkEmailSchema = exports.loginSchema = exports.registerSchema = void 0;
 exports.registerSchema = {
     body: {
         type: 'object',
         required: [
             'email',
-            'password',
             'nom',
             'telephone',
             'profileType'
@@ -27,7 +26,7 @@ exports.registerSchema = {
             password: {
                 type: 'string',
                 minLength: 8,
-                description: 'Mot de passe utilisateur'
+                description: 'Mot de passe utilisateur (optionnel, un mot de passe généré aléatoirement sera utilisé si absent)'
             },
             nom: {
                 type: 'string',
@@ -86,15 +85,16 @@ exports.registerSchema = {
 exports.loginSchema = {
     body: {
         type: 'object',
-        required: ['email', 'password'],
+        required: ['email', 'telephone'],
         properties: {
             email: {
                 type: 'string',
-                format: 'email'
+                format: 'email',
+                description: 'User email'
             },
-            password: {
+            telephone: {
                 type: 'string',
-                minLength: 8
+                description: 'User phone number'
             }
         }
     }
@@ -106,5 +106,32 @@ exports.checkEmailSchema = {
         properties: {
             email: { type: 'string', format: 'email' }
         }
+    }
+};
+exports.updateSecuritySchema = {
+    body: {
+        type: 'object',
+        required: ['current_password'],
+        properties: {
+            current_password: {
+                type: 'string',
+                minLength: 1,
+                description: 'Mot de passe actuel pour vérification'
+            },
+            new_password: {
+                type: 'string',
+                minLength: 8,
+                description: 'Nouveau mot de passe (optionnel)'
+            },
+            new_email: {
+                type: 'string',
+                format: 'email',
+                description: 'Nouvelle adresse email (optionnel)'
+            }
+        },
+        oneOf: [
+            { required: ['current_password', 'new_password'] },
+            { required: ['current_password', 'new_email'] }
+        ]
     }
 };

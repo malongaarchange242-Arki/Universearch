@@ -1,6 +1,6 @@
 // src/modules/auth/auth.controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { registerUser, RegisterPayload } from './auth.service';
+import { registerUser, RegisterPayload, loginUser, LoginPayload } from './auth.service';
 import { supabaseAdmin } from '../../plugins/supabase'; // Supabase Admin client
 
 /**
@@ -29,54 +29,61 @@ export const registerHandler = async (
 
 /**
  * Handler de connexion utilisateur.
+ * Accepte email + téléphone (sans password)
  */
 export const loginHandler = async (
-  request: FastifyRequest<{ Body: { email: string; password: string } }>,
+  request: FastifyRequest<{ Body: { email: string; telephone: string } }>,
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const { email, password } = request.body;
+    const { email, telephone } = request.body;
 
-    // Connexion via Supabase
-    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+    // Connexion via le service (gère email + téléphone)
+    const result = await loginUser(supabaseAdmin, {
       email,
-      password,
+      telephone,
     });
 
-    if (error || !data.user) {
-      request.log.warn({ err: error }, 'Login failed for email');
-      return reply.status(401).send({
-        success: false,
-        error: error?.message || 'Invalid credentials',
-        details: error ?? null,
-      });
-    }
-
-    // Attempt to fetch profile to determine profile_type (universite / centre_formation)
-    let role: string | null = null;
+    // Récupérer profile_type et user_type
+    let profileType: string | null = null;
+    let userType: string | null = null;
+    
     try {
+      // 1️⃣ Récupérer profile_type
       const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('profile_type')
-        .eq('id', data.user.id)
+        .eq('id', result.userId)
         .single();
 
       if (!profileError && profileData && (profileData as any).profile_type) {
-        const pt = (profileData as any).profile_type as string;
-        if (pt === 'universite') role = 'UNIVERSITE';
-        else if (pt === 'centre_formation') role = 'CENTRE';
+        profileType = (profileData as any).profile_type as string;
+      }
+
+      // 2️⃣ Si profile_type = 'utilisateur', récupérer user_type depuis table utilisateurs
+      if (profileType === 'utilisateur') {
+        const { data: userTypeData, error: userTypeError } = await supabaseAdmin
+          .from('utilisateurs')
+          .select('user_type')
+          .eq('id', result.userId)
+          .single();
+
+        if (!userTypeError && userTypeData && (userTypeData as any).user_type) {
+          userType = (userTypeData as any).user_type as string;
+        }
       }
     } catch (e) {
-      request.log.warn({ err: e }, 'Failed to fetch profile for login response');
+      request.log.warn({ err: e }, 'Failed to fetch profile data for login response');
     }
 
-    // Standardized response: token + user object with role for frontend routing
+    // Retourner token + user avec profile_type ET user_type
     return reply.status(200).send({
-      token: data.session?.access_token ?? null,
+      token: result.token,
       user: {
-        id: data.user.id,
-        email: data.user.email ?? null,
-        role: role ?? null,
+        id: result.userId,
+        email: result.email ?? null,
+        profile_type: profileType,
+        user_type: userType,
       },
     });
   } catch (err) {
@@ -173,4 +180,92 @@ export const logoutHandler = async (
     success: true,
     message: 'Logged out successfully',
   });
+};
+
+/**
+ * Handler de mise à jour des informations de sécurité (mot de passe et email).
+ */
+export const updateSecurityHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const { current_password, new_password, new_email } = request.body as {
+      current_password: string;
+      new_password?: string;
+      new_email?: string;
+    };
+    const userId = (request as any).user?.id;
+
+    if (!userId) {
+      return reply.status(401).send({
+        success: false,
+        error: 'Utilisateur non authentifié'
+      });
+    }
+
+    // Vérifier le mot de passe actuel
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !userData.user) {
+      return reply.status(404).send({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier le mot de passe actuel en essayant de se connecter
+    const { error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+      email: userData.user.email!,
+      password: current_password
+    });
+
+    if (signInError) {
+      return reply.status(401).send({
+        success: false,
+        error: 'Mot de passe actuel incorrect'
+      });
+    }
+
+    // Mettre à jour l'email si fourni
+    if (new_email && new_email !== userData.user.email) {
+      const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email: new_email
+      });
+
+      if (emailError) {
+        request.log.error({ err: emailError, userId }, 'Failed to update email');
+        return reply.status(400).send({
+          success: false,
+          error: 'Erreur lors de la mise à jour de l\'email'
+        });
+      }
+    }
+
+    // Mettre à jour le mot de passe si fourni
+    if (new_password) {
+      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: new_password
+      });
+
+      if (passwordError) {
+        request.log.error({ err: passwordError, userId }, 'Failed to update password');
+        return reply.status(400).send({
+          success: false,
+          error: 'Erreur lors de la mise à jour du mot de passe'
+        });
+      }
+    }
+
+    reply.status(200).send({
+      success: true,
+      message: 'Informations de sécurité mises à jour avec succès'
+    });
+
+  } catch (error) {
+    request.log.error(error);
+    reply.status(500).send({
+      success: false,
+      error: 'Erreur interne du serveur'
+    });
+  }
 };

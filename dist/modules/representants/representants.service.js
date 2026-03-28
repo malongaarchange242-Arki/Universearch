@@ -15,9 +15,17 @@ class RepresentantService {
             const { data: rep, error } = await this.supabase
                 .from('representants')
                 .insert({
-                centre_id: data.centre_id,
+                centre_id: profileId,
                 profile_id: profileId,
-                fonction: data.fonction,
+                nom: data.nom || null,
+                fonction: data.fonction || 'Représentant',
+                description: data.description || null,
+                logo_url: data.logo_url || null,
+                video_url: data.video_url || null,
+                pres_lastname: data.pres_lastname || null,
+                pres_firstname: data.pres_firstname || null,
+                pres_phone: data.pres_phone || null,
+                pres_email: data.pres_email || null,
                 statut: 'actif',
                 date_creation: new Date().toISOString(),
             })

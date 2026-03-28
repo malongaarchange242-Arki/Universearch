@@ -12,8 +12,8 @@ const usersRoutes = async (app, _options) => {
     // Routes utilisateurs
     // - GET /users/:id -> authentifié (user lui-même, admin ou superviseur). Authorization fine-grained handled in controller/service.
     app.get('/users/:id', { preHandler: [middleware_1.authenticate] }, async (req, reply) => controller.getUser(req, reply));
-    // - GET /users -> uniquement superviseur ou admin
-    app.get('/users', { preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)(['superviseur', 'admin'])] }, async (req, reply) => controller.listUsers(req, reply));
+    // - GET /users -> uniquement superviseur ou admin (temporairement ouvert pour développement)
+    app.get('/users', { preHandler: [middleware_1.authenticate] }, async (req, reply) => controller.listUsers(req, reply));
     // - PUT /users/:id -> superviseur ou admin (ou l'utilisateur lui-même ; check in controller)
     app.put('/users/:id', { preHandler: [middleware_1.authenticate, (0, middleware_1.authorize)(['superviseur', 'admin'])] }, async (req, reply) => controller.updateUser(req, reply));
     // - DELETE /users/:id -> superviseur ou admin

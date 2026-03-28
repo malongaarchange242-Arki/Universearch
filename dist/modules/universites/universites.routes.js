@@ -20,11 +20,8 @@ const universites_schema_1 = require("./universites.schema");
 const universitesRoutes = async (app, _options) => {
     const service = new universites_service_1.UniversitesService(supabase_1.supabaseAdmin);
     const controller = new universites_controller_1.UniversitesController(service);
-    // Routes publiques (sans authentification)
-    app.post('/', (req, reply) => controller.createUniversite(req, reply));
-    app.get('/', { schema: universites_schema_1.listUniversitesSchema }, (req, reply) => controller.listApprovedUniversites(req, reply));
-    app.get('/:id', { schema: universites_schema_1.getUniversiteByIdSchema }, (req, reply) => controller.getUniversiteById(req, reply));
     // Routes protégées (authentification + autorisation UNIVERSITE + vérification APPROVED)
+    // IMPORTANT: Placer AVANT les routes avec :id pour éviter que :id capture 'me'
     await app.register(async function (fastify) {
         fastify.addHook('preHandler', middleware_1.authenticate);
         fastify.addHook('preHandler', (0, middleware_1.authorize)(['universite', 'admin']));
@@ -35,5 +32,9 @@ const universitesRoutes = async (app, _options) => {
         // Upload logo for my université
         fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
     });
+    // Routes publiques (sans authentification) - placées APRÈS les routes /me
+    app.post('/', (req, reply) => controller.createUniversite(req, reply));
+    app.get('/', { schema: universites_schema_1.listUniversitesSchema }, (req, reply) => controller.listApprovedUniversites(req, reply));
+    app.get('/:id', { schema: universites_schema_1.getUniversiteByIdSchema }, (req, reply) => controller.getUniversiteById(req, reply));
 };
 exports.universitesRoutes = universitesRoutes;

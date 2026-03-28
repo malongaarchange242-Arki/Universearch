@@ -22,8 +22,9 @@ export interface RegisterPayload {
 }
 
 export interface LoginPayload {
+  // Login par email ET téléphone (sans password)
   email: string;
-  password: string;
+  telephone: string;
 }
 
 export interface AuthResult {
@@ -199,24 +200,73 @@ export const registerUser = async (
 
 
 /**
- * Login utilisateur via email/password
+ * Login utilisateur via email + téléphone (sans password)
+ * ✅ Vérifier juste que email+téléphone existent - Accès automatique
  */
 export const loginUser = async (
   supabase: SupabaseClient,
   payload: LoginPayload
 ): Promise<LoginResult> => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: payload.email,
-    password: payload.password,
-  });
+  const { email, telephone } = payload;
 
-  if (error || !data.session?.user || !data.session?.access_token) {
-    throw new Error(error?.message || 'Invalid credentials');
+  // 1️⃣ Vérifier que l'utilisateur existe avec email + téléphone
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, email')
+    .eq('email', email)
+    .eq('telephone', telephone)
+    .single(); // Retourne une seule ligne
+
+  if (profileError || !profiles) {
+    console.error('Login failed:', profileError?.message);
+    throw new Error('User not found with provided email and phone');
   }
 
-  return {
-    userId: data.session.user.id,
-    email: data.session.user.email ?? null,
-    token: data.session.access_token,
-  };
+  const userId = profiles.id;
+  const userEmail = profiles.email;
+
+  // 2️⃣ Générer un token de session automatique via magic link
+  try {
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email: userEmail,
+    });
+
+    if (linkError || !linkData) {
+      console.error('Token generation failed:', linkError?.message);
+      throw new Error('Failed to generate token');
+    }
+
+    // Extraire le token du lien générée
+    // Le lien ressemble à: https://...#access_token=...&refresh_token=...&token_type=bearer
+    const actionLink = linkData.properties?.action_link || '';
+    
+    // Extraire le token depuis le lien
+    let token: string | null = null;
+    
+    if (actionLink.includes('#')) {
+      // Format avec hash
+      const hashPart = actionLink.split('#')[1];
+      const params = new URLSearchParams(hashPart);
+      token = params.get('access_token');
+    } else if (actionLink.includes('token=')) {
+      // Format avec query param
+      const tokenMatch = actionLink.match(/token=([^&]+)/);
+      token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : null;
+    }
+
+    if (!token) {
+      console.error('Could not extract token from link:', actionLink);
+      throw new Error('Failed to extract token from generated link');
+    }
+
+    return {
+      userId: userId,
+      email: userEmail ?? null,
+      token: token,
+    };
+  } catch (e) {
+    console.error('Auth error:', (e as Error).message);
+    throw new Error(`Authentication failed: ${(e as Error).message}`);
+  }
 };

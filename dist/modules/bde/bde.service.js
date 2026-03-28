@@ -18,6 +18,7 @@ class BdeService {
                 // Do not trust client-provided universite_id — use authenticated profileId
                 universite_id: profileId,
                 profile_id: profileId,
+                nom: data.nom || null,
                 description: data.description || null,
                 logo_url: data.logo_url || null,
                 video_url: data.video_url || null,

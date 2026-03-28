@@ -4,8 +4,8 @@
  */
 
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { registerHandler, loginHandler, logoutHandler, checkEmailHandler } from './auth.controller';
-import { registerSchema, loginSchema, checkEmailSchema } from './auth.schema';
+import { registerHandler, loginHandler, logoutHandler, checkEmailHandler, updateSecurityHandler } from './auth.controller';
+import { registerSchema, loginSchema, checkEmailSchema, updateSecuritySchema } from './auth.schema';
 import { authenticate } from '../../middleware';
 
 export const authRoutes = async (
@@ -23,4 +23,7 @@ export const authRoutes = async (
 
   // Déconnexion (protégée)
   app.post('/logout', { preHandler: [authenticate] }, logoutHandler);
+
+  // Mise à jour des informations de sécurité (protégée)
+  app.put('/update-security', { schema: updateSecuritySchema, preHandler: [authenticate] }, updateSecurityHandler);
 };

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logoutHandler = exports.checkEmailHandler = exports.loginHandler = exports.registerHandler = void 0;
+exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.loginHandler = exports.registerHandler = void 0;
 const auth_service_1 = require("./auth.service");
 const supabase_1 = require("../../plugins/supabase"); // Supabase Admin client
 /**
@@ -26,49 +26,52 @@ const registerHandler = async (request, reply) => {
 exports.registerHandler = registerHandler;
 /**
  * Handler de connexion utilisateur.
+ * Accepte email + téléphone (sans password)
  */
 const loginHandler = async (request, reply) => {
     try {
-        const { email, password } = request.body;
-        // Connexion via Supabase
-        const { data, error } = await supabase_1.supabaseAdmin.auth.signInWithPassword({
+        const { email, telephone } = request.body;
+        // Connexion via le service (gère email + téléphone)
+        const result = await (0, auth_service_1.loginUser)(supabase_1.supabaseAdmin, {
             email,
-            password,
+            telephone,
         });
-        if (error || !data.user) {
-            request.log.warn({ err: error }, 'Login failed for email');
-            return reply.status(401).send({
-                success: false,
-                error: error?.message || 'Invalid credentials',
-                details: error ?? null,
-            });
-        }
-        // Attempt to fetch profile to determine profile_type (universite / centre_formation)
-        let role = null;
+        // Récupérer profile_type et user_type
+        let profileType = null;
+        let userType = null;
         try {
+            // 1️⃣ Récupérer profile_type
             const { data: profileData, error: profileError } = await supabase_1.supabaseAdmin
                 .from('profiles')
                 .select('profile_type')
-                .eq('id', data.user.id)
+                .eq('id', result.userId)
                 .single();
             if (!profileError && profileData && profileData.profile_type) {
-                const pt = profileData.profile_type;
-                if (pt === 'universite')
-                    role = 'UNIVERSITE';
-                else if (pt === 'centre_formation')
-                    role = 'CENTRE';
+                profileType = profileData.profile_type;
+            }
+            // 2️⃣ Si profile_type = 'utilisateur', récupérer user_type depuis table utilisateurs
+            if (profileType === 'utilisateur') {
+                const { data: userTypeData, error: userTypeError } = await supabase_1.supabaseAdmin
+                    .from('utilisateurs')
+                    .select('user_type')
+                    .eq('id', result.userId)
+                    .single();
+                if (!userTypeError && userTypeData && userTypeData.user_type) {
+                    userType = userTypeData.user_type;
+                }
             }
         }
         catch (e) {
-            request.log.warn({ err: e }, 'Failed to fetch profile for login response');
+            request.log.warn({ err: e }, 'Failed to fetch profile data for login response');
         }
-        // Standardized response: token + user object with role for frontend routing
+        // Retourner token + user avec profile_type ET user_type
         return reply.status(200).send({
-            token: data.session?.access_token ?? null,
+            token: result.token,
             user: {
-                id: data.user.id,
-                email: data.user.email ?? null,
-                role: role ?? null,
+                id: result.userId,
+                email: result.email ?? null,
+                profile_type: profileType,
+                user_type: userType,
             },
         });
     }
@@ -164,3 +167,75 @@ const logoutHandler = async (_request, reply) => {
     });
 };
 exports.logoutHandler = logoutHandler;
+/**
+ * Handler de mise à jour des informations de sécurité (mot de passe et email).
+ */
+const updateSecurityHandler = async (request, reply) => {
+    try {
+        const { current_password, new_password, new_email } = request.body;
+        const userId = request.user?.id;
+        if (!userId) {
+            return reply.status(401).send({
+                success: false,
+                error: 'Utilisateur non authentifié'
+            });
+        }
+        // Vérifier le mot de passe actuel
+        const { data: userData, error: userError } = await supabase_1.supabaseAdmin.auth.admin.getUserById(userId);
+        if (userError || !userData.user) {
+            return reply.status(404).send({
+                success: false,
+                error: 'Utilisateur non trouvé'
+            });
+        }
+        // Vérifier le mot de passe actuel en essayant de se connecter
+        const { error: signInError } = await supabase_1.supabaseAdmin.auth.signInWithPassword({
+            email: userData.user.email,
+            password: current_password
+        });
+        if (signInError) {
+            return reply.status(401).send({
+                success: false,
+                error: 'Mot de passe actuel incorrect'
+            });
+        }
+        // Mettre à jour l'email si fourni
+        if (new_email && new_email !== userData.user.email) {
+            const { error: emailError } = await supabase_1.supabaseAdmin.auth.admin.updateUserById(userId, {
+                email: new_email
+            });
+            if (emailError) {
+                request.log.error({ err: emailError, userId }, 'Failed to update email');
+                return reply.status(400).send({
+                    success: false,
+                    error: 'Erreur lors de la mise à jour de l\'email'
+                });
+            }
+        }
+        // Mettre à jour le mot de passe si fourni
+        if (new_password) {
+            const { error: passwordError } = await supabase_1.supabaseAdmin.auth.admin.updateUserById(userId, {
+                password: new_password
+            });
+            if (passwordError) {
+                request.log.error({ err: passwordError, userId }, 'Failed to update password');
+                return reply.status(400).send({
+                    success: false,
+                    error: 'Erreur lors de la mise à jour du mot de passe'
+                });
+            }
+        }
+        reply.status(200).send({
+            success: true,
+            message: 'Informations de sécurité mises à jour avec succès'
+        });
+    }
+    catch (error) {
+        request.log.error(error);
+        reply.status(500).send({
+            success: false,
+            error: 'Erreur interne du serveur'
+        });
+    }
+};
+exports.updateSecurityHandler = updateSecurityHandler;

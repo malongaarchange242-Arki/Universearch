@@ -17,5 +17,7 @@ const authRoutes = async (app, _options) => {
     app.post('/check-email', { schema: auth_schema_1.checkEmailSchema }, auth_controller_1.checkEmailHandler);
     // Déconnexion (protégée)
     app.post('/logout', { preHandler: [middleware_1.authenticate] }, auth_controller_1.logoutHandler);
+    // Mise à jour des informations de sécurité (protégée)
+    app.put('/update-security', { schema: auth_schema_1.updateSecuritySchema, preHandler: [middleware_1.authenticate] }, auth_controller_1.updateSecurityHandler);
 };
 exports.authRoutes = authRoutes;
