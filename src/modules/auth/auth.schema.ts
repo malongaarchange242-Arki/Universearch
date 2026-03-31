@@ -99,6 +99,33 @@ export const loginSchema = {
   }
 };
 
+export const refreshSchema = {
+  body: {
+    type: 'object',
+    required: ['refresh_token'],
+    properties: {
+      refresh_token: {
+        type: 'string',
+        minLength: 1,
+        description: 'Refresh token JWT',
+      },
+    },
+  },
+};
+
+export const logoutSchema = {
+  body: {
+    type: 'object',
+    properties: {
+      refresh_token: {
+        type: 'string',
+        minLength: 1,
+        description: 'Refresh token to revoke',
+      },
+    },
+  },
+};
+
 export const checkEmailSchema = {
   body: {
     type: 'object',

@@ -13,10 +13,12 @@ const authRoutes = async (app, _options) => {
     app.post('/register', { schema: auth_schema_1.registerSchema }, auth_controller_1.registerHandler);
     // Connexion
     app.post('/login', { schema: auth_schema_1.loginSchema }, auth_controller_1.loginHandler);
+    // Refresh access token
+    app.post('/refresh', { schema: auth_schema_1.refreshSchema }, auth_controller_1.refreshHandler);
     // Vérification d'email avant affichage du champ mot de passe
     app.post('/check-email', { schema: auth_schema_1.checkEmailSchema }, auth_controller_1.checkEmailHandler);
     // Déconnexion (protégée)
-    app.post('/logout', { preHandler: [middleware_1.authenticate] }, auth_controller_1.logoutHandler);
+    app.post('/logout', { schema: auth_schema_1.logoutSchema, preHandler: [middleware_1.authenticate] }, auth_controller_1.logoutHandler);
     // Mise à jour des informations de sécurité (protégée)
     app.put('/update-security', { schema: auth_schema_1.updateSecuritySchema, preHandler: [middleware_1.authenticate] }, auth_controller_1.updateSecurityHandler);
 };

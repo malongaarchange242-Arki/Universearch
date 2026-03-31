@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.loginHandler = exports.registerHandler = void 0;
+exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.refreshHandler = exports.loginHandler = exports.registerHandler = void 0;
 const auth_service_1 = require("./auth.service");
 const supabase_1 = require("../../plugins/supabase"); // Supabase Admin client
 /**
@@ -67,6 +67,7 @@ const loginHandler = async (request, reply) => {
         // Retourner token + user avec profile_type ET user_type
         return reply.status(200).send({
             token: result.token,
+            refresh_token: result.refreshToken,
             user: {
                 id: result.userId,
                 email: result.email ?? null,
@@ -84,6 +85,35 @@ const loginHandler = async (request, reply) => {
     }
 };
 exports.loginHandler = loginHandler;
+const refreshHandler = async (request, reply) => {
+    try {
+        const refreshToken = request.body?.refresh_token;
+        if (!refreshToken) {
+            return reply.status(400).send({
+                success: false,
+                error: 'refresh_token is required',
+            });
+        }
+        const result = await (0, auth_service_1.refreshAccessToken)(supabase_1.supabaseAdmin, refreshToken);
+        return reply.status(200).send({
+            token: result.token,
+            refresh_token: result.refreshToken,
+            user: {
+                id: result.user.id,
+                email: result.user.email,
+                profile_type: result.user.role,
+            },
+        });
+    }
+    catch (error) {
+        request.log.error(error);
+        return reply.status(401).send({
+            success: false,
+            error: error.message,
+        });
+    }
+};
+exports.refreshHandler = refreshHandler;
 // Simple in-memory rate limiter for check-email endpoint
 const _checkEmailRate = new Map();
 const CHECK_EMAIL_MAX = 10; // max requests
@@ -160,7 +190,16 @@ exports.checkEmailHandler = checkEmailHandler;
 /**
  * Handler de déconnexion utilisateur.
  */
-const logoutHandler = async (_request, reply) => {
+const logoutHandler = async (request, reply) => {
+    try {
+        const refreshToken = request.body?.refresh_token;
+        if (refreshToken) {
+            await (0, auth_service_1.revokeRefreshToken)(supabase_1.supabaseAdmin, refreshToken);
+        }
+    }
+    catch (error) {
+        request.log.warn({ err: error }, 'Failed to revoke refresh token during logout');
+    }
     reply.status(200).send({
         success: true,
         message: 'Logged out successfully',

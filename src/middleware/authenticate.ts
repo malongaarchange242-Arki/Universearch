@@ -1,11 +1,12 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import jwt from 'jsonwebtoken';
 import { incCounter, recordTiming } from './metrics';
 
 /**
  * Middleware `authenticate` pour Fastify (preHandler).
  * - Vérifie l'en-tête `Authorization: Bearer <token>`
- * - Vérifie le token via Supabase
- * - Injecte `request.user = { id, email, role? }`
+ * - Vérifie le token via JWT custom
+ * - Injecte `request.user = { id, email, role }`
  * - Retourne 401 en cas d'échec
  *
  * Remarque : accède au client Supabase préalablement décoré sur l'instance Fastify
@@ -30,45 +31,41 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       return reply.status(401).send({ error: 'Invalid Authorization format' });
     }
 
-    // Accès au client supabase attaché sur l'instance Fastify
-    const fastify = request.server as any;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      request.log?.error('authenticate: missing JWT_SECRET configuration');
+      return reply.status(500).send({ error: 'Authentication misconfigured' });
+    }
 
-    // Vérification du token via Supabase
-    const { data, error } = await fastify.supabase.auth.getUser(token);
-
-    if (error || !data?.user) {
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, secret);
+    } catch (_err) {
       incCounter('auth.invalid_token');
       request.log?.info('authenticate: invalid or expired token');
       return reply.status(401).send({ error: 'Invalid or expired token' });
     }
 
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      !decoded.id ||
+      !decoded.email ||
+      !decoded.role
+    ) {
+      incCounter('auth.invalid_token');
+      request.log?.info('authenticate: invalid token payload');
+      return reply.status(401).send({ error: 'Invalid token payload' });
+    }
+
     // Injection user dans la requête
     const userObj: any = {
-      id: data.user.id,
-      email: data.user.email ?? null,
-      // role peut venir de user_metadata ou de la table profiles; on essaie metadata d'abord
-      role: (data.user.user_metadata as any)?.role ?? null,
+      id: String(decoded.id),
+      email: decoded.email ?? null,
+      role: String(decoded.role),
     };
 
     request.user = userObj;
-
-    // Si le rôle n'est pas présent dans les metadata, tenter de récupérer depuis la table `profiles`
-    if (!userObj.role) {
-      try {
-        const { data: profile, error: profErr } = await fastify.supabase
-          .from('profiles')
-          .select('profile_type')
-          .eq('id', data.user.id)
-          .single();
-
-        if (!profErr && profile?.profile_type) {
-          userObj.role = profile.profile_type;
-        }
-      } catch (e) {
-        // Ne pas bloquer l'utilisateur si la récupération échoue; logguer seulement
-        request.log?.error?.(e);
-      }
-    }
 
     incCounter('auth.success');
     request.log?.info({ userId: userObj.id, role: userObj.role }, 'authenticate: success');

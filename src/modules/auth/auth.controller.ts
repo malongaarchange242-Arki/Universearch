@@ -1,6 +1,13 @@
 // src/modules/auth/auth.controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { registerUser, RegisterPayload, loginUser, LoginPayload } from './auth.service';
+import {
+  registerUser,
+  RegisterPayload,
+  loginUser,
+  LoginPayload,
+  refreshAccessToken,
+  revokeRefreshToken,
+} from './auth.service';
 import { supabaseAdmin } from '../../plugins/supabase'; // Supabase Admin client
 
 /**
@@ -79,6 +86,7 @@ export const loginHandler = async (
     // Retourner token + user avec profile_type ET user_type
     return reply.status(200).send({
       token: result.token,
+      refresh_token: result.refreshToken,
       user: {
         id: result.userId,
         email: result.email ?? null,
@@ -91,6 +99,39 @@ export const loginHandler = async (
     reply.status(500).send({
       success: false,
       error: 'Internal server error',
+    });
+  }
+};
+
+export const refreshHandler = async (
+  request: FastifyRequest<{ Body: { refresh_token: string } }>,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const refreshToken = request.body?.refresh_token;
+    if (!refreshToken) {
+      return reply.status(400).send({
+        success: false,
+        error: 'refresh_token is required',
+      });
+    }
+
+    const result = await refreshAccessToken(supabaseAdmin, refreshToken);
+
+    return reply.status(200).send({
+      token: result.token,
+      refresh_token: result.refreshToken,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        profile_type: result.user.role,
+      },
+    });
+  } catch (error) {
+    request.log.error(error);
+    return reply.status(401).send({
+      success: false,
+      error: (error as Error).message,
     });
   }
 };
@@ -173,9 +214,18 @@ export const checkEmailHandler = async (
  * Handler de déconnexion utilisateur.
  */
 export const logoutHandler = async (
-  _request: FastifyRequest,
+  request: FastifyRequest<{ Body: { refresh_token?: string } }>,
   reply: FastifyReply
 ): Promise<void> => {
+  try {
+    const refreshToken = request.body?.refresh_token;
+    if (refreshToken) {
+      await revokeRefreshToken(supabaseAdmin, refreshToken);
+    }
+  } catch (error) {
+    request.log.warn({ err: error }, 'Failed to revoke refresh token during logout');
+  }
+
   reply.status(200).send({
     success: true,
     message: 'Logged out successfully',

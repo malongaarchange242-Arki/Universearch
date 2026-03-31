@@ -2,6 +2,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 export interface RegisterPayload {
   email: string;
@@ -31,6 +32,7 @@ export interface AuthResult {
   userId: string;
   email: string;
   token?: string | null;
+  refreshToken?: string | null;
   userType?: 'bachelier' | 'etudiant' | 'parent';
 }
 
@@ -38,7 +40,167 @@ export interface LoginResult {
   userId: string;
   email: string | null;
   token: string;
+  refreshToken: string;
 }
+
+export interface AuthTokenPayload {
+  id: string;
+  email: string | null;
+  role: string;
+}
+
+export interface RefreshTokenPayload {
+  id: string;
+  type: 'refresh';
+}
+
+export interface RefreshResult {
+  token: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    email: string | null;
+    role: string;
+  };
+}
+
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('Missing JWT_SECRET configuration');
+  }
+  return secret;
+};
+
+export const generateToken = (payload: AuthTokenPayload): string => {
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: '7d',
+  });
+};
+
+const generateRefreshTokenJwt = (payload: RefreshTokenPayload): string => {
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: '30d',
+  });
+};
+
+const hashToken = (token: string): string =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
+const issueRefreshToken = async (
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string> => {
+  const refreshToken = generateRefreshTokenJwt({
+    id: userId,
+    type: 'refresh',
+  });
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const tokenHash = hashToken(refreshToken);
+
+  const { error } = await supabase.from('auth_refresh_tokens').insert({
+    id: crypto.randomUUID(),
+    user_id: userId,
+    token_hash: tokenHash,
+    expires_at: expiresAt,
+  });
+
+  if (error) {
+    throw new Error(`Refresh token creation failed: ${error.message}`);
+  }
+
+  return refreshToken;
+};
+
+export const revokeRefreshToken = async (
+  supabase: SupabaseClient,
+  refreshToken: string
+): Promise<void> => {
+  const tokenHash = hashToken(refreshToken);
+
+  const { error } = await supabase
+    .from('auth_refresh_tokens')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('token_hash', tokenHash)
+    .is('revoked_at', null);
+
+  if (error) {
+    throw new Error(`Failed to revoke refresh token: ${error.message}`);
+  }
+};
+
+export const refreshAccessToken = async (
+  supabase: SupabaseClient,
+  refreshToken: string
+): Promise<RefreshResult> => {
+  let decoded: string | Record<string, any>;
+
+  try {
+    decoded = jwt.verify(refreshToken, getJwtSecret());
+  } catch (e) {
+    throw new Error(`Invalid refresh token: ${(e as Error).message}`);
+  }
+
+  if (
+    typeof decoded === 'string' ||
+    !decoded.id ||
+    decoded.type !== 'refresh'
+  ) {
+    throw new Error('Invalid refresh token payload');
+  }
+
+  const tokenHash = hashToken(refreshToken);
+  const now = new Date().toISOString();
+
+  const { data: storedToken, error: tokenError } = await supabase
+    .from('auth_refresh_tokens')
+    .select('id, user_id, expires_at, revoked_at')
+    .eq('token_hash', tokenHash)
+    .single();
+
+  if (tokenError || !storedToken) {
+    throw new Error('Refresh token not found');
+  }
+
+  if ((storedToken as any).revoked_at) {
+    throw new Error('Refresh token has been revoked');
+  }
+
+  if ((storedToken as any).expires_at <= now) {
+    throw new Error('Refresh token has expired');
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, email, profile_type')
+    .eq('id', (storedToken as any).user_id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error('User not found for refresh token');
+  }
+
+  await revokeRefreshToken(supabase, refreshToken);
+
+  const token = generateToken({
+    id: profile.id,
+    email: profile.email ?? null,
+    role: profile.profile_type,
+  });
+
+  const nextRefreshToken = await issueRefreshToken(supabase, profile.id);
+
+  return {
+    token,
+    refreshToken: nextRefreshToken,
+    user: {
+      id: profile.id,
+      email: profile.email ?? null,
+      role: profile.profile_type,
+    },
+  };
+};
 
 /**
  * Crée un utilisateur Supabase + profile + table spécifique
@@ -47,24 +209,7 @@ export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
-  // Supabase requires a password when creating an auth user. If the caller
-  // didn't provide one we generate a random secret; the frontend can then
-  // trigger a password reset flow or ignore it. We only attempt to sign in
-  // automatically when the password was explicitly given.
-  const generatedPwd = payload.password || crypto.randomUUID();
-
-  const { data: authData, error: authError } =
-    await supabase.auth.admin.createUser({
-      email: payload.email,
-      password: generatedPwd,
-      email_confirm: true,
-    });
-
-  if (authError || !authData.user) {
-    throw new Error(`Auth creation failed: ${authError?.message}`);
-  }
-
-  const userId = authData.user.id;
+  const userId = crypto.randomUUID();
 
   // Création du profile
   const { error: profileError } = await supabase
@@ -97,7 +242,6 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Utilisateur creation failed: ${error.message}`);
       }
       break;
@@ -109,7 +253,6 @@ export const registerUser = async (
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Admin creation failed: ${error.message}`);
       }
       break;
@@ -121,7 +264,6 @@ export const registerUser = async (
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Superviseur creation failed: ${error.message}`);
       }
       break;
@@ -140,7 +282,6 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Universite creation failed: ${error.message}`);
       }
       break;
@@ -159,7 +300,6 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Centre creation failed: ${error.message}`);
       }
       break;
@@ -169,28 +309,18 @@ export const registerUser = async (
       break;
   }
 
-  // After successful creation, sign in the new user to obtain a token.
-  // we use `generatedPwd` which is either the provided password or the random
-  // one we generated above. Signing in should always succeed unless something
-  // unexpected happened.
-  let token: string | null = null;
-  try {
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: payload.email,
-      password: generatedPwd,
-    });
-
-    if (!signInError && signInData.session && signInData.session.access_token) {
-      token = signInData.session.access_token;
-    }
-  } catch (e) {
-    // ignore sign-in errors; we'll just return without token
-  }
+  const token = generateToken({
+    id: userId,
+    email: payload.email,
+    role: payload.profileType,
+  });
+  const refreshToken = await issueRefreshToken(supabase, userId);
 
   const result: AuthResult = { userId, email: payload.email };
   if (token) {
     result.token = token;
   }
+  result.refreshToken = refreshToken;
   if (payload.userType) {
     result.userType = payload.userType;
   }
@@ -212,7 +342,7 @@ export const loginUser = async (
   // 1️⃣ Vérifier que l'utilisateur existe avec email + téléphone
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
-    .select('id, email')
+    .select('id, email, profile_type')
     .eq('email', email)
     .eq('telephone', telephone)
     .single(); // Retourne une seule ligne
@@ -224,46 +354,25 @@ export const loginUser = async (
 
   const userId = profiles.id;
   const userEmail = profiles.email;
+  const role = profiles.profile_type;
 
-  // 2️⃣ Générer un token de session automatique via magic link
+  if (!role) {
+    throw new Error('User profile is missing a role');
+  }
+
   try {
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email: userEmail,
+    const token = generateToken({
+      id: userId,
+      email: userEmail ?? null,
+      role,
     });
-
-    if (linkError || !linkData) {
-      console.error('Token generation failed:', linkError?.message);
-      throw new Error('Failed to generate token');
-    }
-
-    // Extraire le token du lien générée
-    // Le lien ressemble à: https://...#access_token=...&refresh_token=...&token_type=bearer
-    const actionLink = linkData.properties?.action_link || '';
-    
-    // Extraire le token depuis le lien
-    let token: string | null = null;
-    
-    if (actionLink.includes('#')) {
-      // Format avec hash
-      const hashPart = actionLink.split('#')[1];
-      const params = new URLSearchParams(hashPart);
-      token = params.get('access_token');
-    } else if (actionLink.includes('token=')) {
-      // Format avec query param
-      const tokenMatch = actionLink.match(/token=([^&]+)/);
-      token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : null;
-    }
-
-    if (!token) {
-      console.error('Could not extract token from link:', actionLink);
-      throw new Error('Failed to extract token from generated link');
-    }
+    const refreshToken = await issueRefreshToken(supabase, userId);
 
     return {
-      userId: userId,
+      userId,
       email: userEmail ?? null,
-      token: token,
+      token,
+      refreshToken,
     };
   } catch (e) {
     console.error('Auth error:', (e as Error).message);

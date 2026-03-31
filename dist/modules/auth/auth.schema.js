@@ -7,7 +7,7 @@
  * Aucun traitement métier ici.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateSecuritySchema = exports.checkEmailSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.updateSecuritySchema = exports.checkEmailSchema = exports.logoutSchema = exports.refreshSchema = exports.loginSchema = exports.registerSchema = void 0;
 exports.registerSchema = {
     body: {
         type: 'object',
@@ -98,6 +98,31 @@ exports.loginSchema = {
             }
         }
     }
+};
+exports.refreshSchema = {
+    body: {
+        type: 'object',
+        required: ['refresh_token'],
+        properties: {
+            refresh_token: {
+                type: 'string',
+                minLength: 1,
+                description: 'Refresh token JWT',
+            },
+        },
+    },
+};
+exports.logoutSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            refresh_token: {
+                type: 'string',
+                minLength: 1,
+                description: 'Refresh token to revoke',
+            },
+        },
+    },
 };
 exports.checkEmailSchema = {
     body: {
