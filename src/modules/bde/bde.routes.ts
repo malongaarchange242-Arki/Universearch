@@ -21,6 +21,14 @@ export async function registerBdeRoutes(
     (request, reply) => bdeController.createBde(request, reply),
   );
 
+  fastify.get(
+    '/universites/me/bde',
+    {
+      preHandler: [authenticate],
+    },
+    (request, reply) => bdeController.getMyBde(request, reply),
+  );
+
   // GET /universites/:universite_id/bde - Get BDE for a university
   fastify.get<{ Params: { universite_id: string } }>(
     '/universites/:universite_id/bde',

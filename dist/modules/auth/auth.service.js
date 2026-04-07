@@ -1,5 +1,38 @@
 "use strict";
 // src/modules/auth/auth.service.ts
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -7,8 +40,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loginUser = exports.registerUser = exports.refreshAccessToken = exports.revokeRefreshToken = exports.generateToken = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const dotenv = __importStar(require("dotenv"));
+const path_1 = __importDefault(require("path"));
 const getJwtSecret = () => {
-    const secret = process.env.JWT_SECRET;
+    let secret = process.env.JWT_SECRET;
+    if (!secret) {
+        dotenv.config({ path: path_1.default.resolve(process.cwd(), '.env') });
+        secret = process.env.JWT_SECRET;
+    }
     if (!secret) {
         throw new Error('Missing JWT_SECRET configuration');
     }
@@ -115,7 +154,21 @@ exports.refreshAccessToken = refreshAccessToken;
  * Crée un utilisateur Supabase + profile + table spécifique
  */
 const registerUser = async (supabase, payload) => {
-    const userId = crypto_1.default.randomUUID();
+    const password = payload.password && payload.password.trim().length >= 8
+        ? payload.password
+        : crypto_1.default.randomBytes(16).toString('hex');
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: payload.email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+            profile_type: payload.profileType,
+        },
+    });
+    if (authError || !authData.user) {
+        throw new Error(`Auth user creation failed: ${authError?.message || 'unknown error'}`);
+    }
+    const userId = authData.user.id;
     // Création du profile
     const { error: profileError } = await supabase
         .from('profiles')
@@ -130,6 +183,7 @@ const registerUser = async (supabase, payload) => {
         genre: payload.genre ?? null,
     });
     if (profileError) {
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Profile creation failed: ${profileError.message}`);
     }
     // Table spécifique selon profileType
@@ -144,6 +198,7 @@ const registerUser = async (supabase, payload) => {
             if (error) {
                 // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
                 await supabase.from('profiles').delete().eq('id', userId);
+                await supabase.auth.admin.deleteUser(userId);
                 throw new Error(`Utilisateur creation failed: ${error.message}`);
             }
             break;
@@ -153,6 +208,7 @@ const registerUser = async (supabase, payload) => {
             if (error) {
                 // Rollback
                 await supabase.from('profiles').delete().eq('id', userId);
+                await supabase.auth.admin.deleteUser(userId);
                 throw new Error(`Admin creation failed: ${error.message}`);
             }
             break;
@@ -162,6 +218,7 @@ const registerUser = async (supabase, payload) => {
             if (error) {
                 // Rollback
                 await supabase.from('profiles').delete().eq('id', userId);
+                await supabase.auth.admin.deleteUser(userId);
                 throw new Error(`Superviseur creation failed: ${error.message}`);
             }
             break;
@@ -178,6 +235,7 @@ const registerUser = async (supabase, payload) => {
             if (error) {
                 // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
                 await supabase.from('profiles').delete().eq('id', userId);
+                await supabase.auth.admin.deleteUser(userId);
                 throw new Error(`Universite creation failed: ${error.message}`);
             }
             break;
@@ -194,6 +252,7 @@ const registerUser = async (supabase, payload) => {
             if (error) {
                 // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
                 await supabase.from('profiles').delete().eq('id', userId);
+                await supabase.auth.admin.deleteUser(userId);
                 throw new Error(`Centre creation failed: ${error.message}`);
             }
             break;
@@ -223,7 +282,43 @@ exports.registerUser = registerUser;
  * ✅ Vérifier juste que email+téléphone existent - Accès automatique
  */
 const loginUser = async (supabase, payload) => {
-    const { email, telephone } = payload;
+    const { email, telephone, password } = payload;
+    if (password) {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+        if (authError || !authData.user) {
+            console.error('Password login failed:', authError?.message);
+            throw new Error('Invalid email or password');
+        }
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, email, profile_type')
+            .eq('id', authData.user.id)
+            .single();
+        if (profileError || !profile) {
+            throw new Error('User profile not found');
+        }
+        if (!['universite', 'centre_formation', 'admin'].includes(profile.profile_type)) {
+            throw new Error('Password login is only available for admin, universite and centre_formation');
+        }
+        const token = (0, exports.generateToken)({
+            id: profile.id,
+            email: profile.email ?? null,
+            role: profile.profile_type,
+        });
+        const refreshToken = await issueRefreshToken(supabase, profile.id);
+        return {
+            userId: profile.id,
+            email: profile.email ?? null,
+            token,
+            refreshToken,
+        };
+    }
+    if (!telephone) {
+        throw new Error('telephone is required when password is not provided');
+    }
     // 1️⃣ Vérifier que l'utilisateur existe avec email + téléphone
     const { data: profiles, error: profileError } = await supabase
         .from('profiles')

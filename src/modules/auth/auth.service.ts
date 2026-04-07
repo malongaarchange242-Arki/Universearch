@@ -3,6 +3,8 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import * as dotenv from 'dotenv';
+import path from 'path';
 
 export interface RegisterPayload {
   email: string;
@@ -25,7 +27,8 @@ export interface RegisterPayload {
 export interface LoginPayload {
   // Login par email ET téléphone (sans password)
   email: string;
-  telephone: string;
+  telephone?: string;
+  password?: string;
 }
 
 export interface AuthResult {
@@ -65,7 +68,11 @@ export interface RefreshResult {
 }
 
 const getJwtSecret = (): string => {
-  const secret = process.env.JWT_SECRET;
+  let secret = process.env.JWT_SECRET;
+  if (!secret) {
+    dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+    secret = process.env.JWT_SECRET;
+  }
   if (!secret) {
     throw new Error('Missing JWT_SECRET configuration');
   }
@@ -209,7 +216,25 @@ export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
-  const userId = crypto.randomUUID();
+  const password =
+    payload.password && payload.password.trim().length >= 8
+      ? payload.password
+      : crypto.randomBytes(16).toString('hex');
+
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: payload.email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      profile_type: payload.profileType,
+    },
+  });
+
+  if (authError || !authData.user) {
+    throw new Error(`Auth user creation failed: ${authError?.message || 'unknown error'}`);
+  }
+
+  const userId = authData.user.id;
 
   // Création du profile
   const { error: profileError } = await supabase
@@ -226,6 +251,7 @@ export const registerUser = async (
     });
 
   if (profileError) {
+    await supabase.auth.admin.deleteUser(userId);
     throw new Error(`Profile creation failed: ${profileError.message}`);
   }
 
@@ -242,6 +268,7 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Utilisateur creation failed: ${error.message}`);
       }
       break;
@@ -253,6 +280,7 @@ export const registerUser = async (
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Admin creation failed: ${error.message}`);
       }
       break;
@@ -264,6 +292,7 @@ export const registerUser = async (
       if (error) {
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Superviseur creation failed: ${error.message}`);
       }
       break;
@@ -282,6 +311,7 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Universite creation failed: ${error.message}`);
       }
       break;
@@ -300,6 +330,7 @@ export const registerUser = async (
       if (error) {
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.auth.admin.deleteUser(userId);
         throw new Error(`Centre creation failed: ${error.message}`);
       }
       break;
@@ -337,7 +368,53 @@ export const loginUser = async (
   supabase: SupabaseClient,
   payload: LoginPayload
 ): Promise<LoginResult> => {
-  const { email, telephone } = payload;
+  const { email, telephone, password } = payload;
+
+  if (password) {
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError || !authData.user) {
+      console.error('Password login failed:', authError?.message);
+      throw new Error('Invalid email or password');
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, profile_type')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('User profile not found');
+    }
+
+    if (!['universite', 'centre_formation', 'admin'].includes(profile.profile_type)) {
+      throw new Error(
+        'Password login is only available for admin, universite and centre_formation'
+      );
+    }
+
+    const token = generateToken({
+      id: profile.id,
+      email: profile.email ?? null,
+      role: profile.profile_type,
+    });
+    const refreshToken = await issueRefreshToken(supabase, profile.id);
+
+    return {
+      userId: profile.id,
+      email: profile.email ?? null,
+      token,
+      refreshToken,
+    };
+  }
+
+  if (!telephone) {
+    throw new Error('telephone is required when password is not provided');
+  }
 
   // 1️⃣ Vérifier que l'utilisateur existe avec email + téléphone
   const { data: profiles, error: profileError } = await supabase

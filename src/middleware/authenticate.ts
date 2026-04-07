@@ -1,6 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { incCounter, recordTiming } from './metrics';
+import * as dotenv from 'dotenv';
+import path from 'path';
 
 /**
  * Middleware `authenticate` pour Fastify (preHandler).
@@ -31,7 +33,11 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       return reply.status(401).send({ error: 'Invalid Authorization format' });
     }
 
-    const secret = process.env.JWT_SECRET;
+    let secret = process.env.JWT_SECRET;
+    if (!secret) {
+      dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+      secret = process.env.JWT_SECRET;
+    }
     if (!secret) {
       request.log?.error('authenticate: missing JWT_SECRET configuration');
       return reply.status(500).send({ error: 'Authentication misconfigured' });

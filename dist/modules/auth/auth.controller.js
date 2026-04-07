@@ -30,11 +30,13 @@ exports.registerHandler = registerHandler;
  */
 const loginHandler = async (request, reply) => {
     try {
-        const { email, telephone } = request.body;
-        // Connexion via le service (gère email + téléphone)
+        const { email, telephone, password } = request.body;
+        // Connexion via le service (email + password pour admin et organisations,
+        // email + téléphone pour le flux historique utilisateur)
         const result = await (0, auth_service_1.loginUser)(supabase_1.supabaseAdmin, {
             email,
             telephone,
+            password,
         });
         // Récupérer profile_type et user_type
         let profileType = null;

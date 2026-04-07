@@ -39,16 +39,18 @@ export const registerHandler = async (
  * Accepte email + téléphone (sans password)
  */
 export const loginHandler = async (
-  request: FastifyRequest<{ Body: { email: string; telephone: string } }>,
+  request: FastifyRequest<{ Body: { email: string; telephone?: string; password?: string } }>,
   reply: FastifyReply
 ): Promise<void> => {
   try {
-    const { email, telephone } = request.body;
+    const { email, telephone, password } = request.body;
 
-    // Connexion via le service (gère email + téléphone)
+    // Connexion via le service (email + password pour admin et organisations,
+    // email + téléphone pour le flux historique utilisateur)
     const result = await loginUser(supabaseAdmin, {
       email,
       telephone,
+      password,
     });
 
     // Récupérer profile_type et user_type

@@ -85,18 +85,26 @@ exports.registerSchema = {
 exports.loginSchema = {
     body: {
         type: 'object',
-        required: ['email', 'telephone'],
         properties: {
             email: {
                 type: 'string',
                 format: 'email',
                 description: 'User email'
             },
+            password: {
+                type: 'string',
+                minLength: 8,
+                description: 'Password login for admin, universite and centre_formation'
+            },
             telephone: {
                 type: 'string',
                 description: 'User phone number'
             }
-        }
+        },
+        oneOf: [
+            { required: ['email', 'password'] },
+            { required: ['email', 'telephone'] }
+        ]
     }
 };
 exports.refreshSchema = {

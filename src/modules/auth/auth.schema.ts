@@ -84,18 +84,27 @@ export const registerSchema = {
 export const loginSchema = {
   body: {
     type: 'object',
-    required: ['email', 'telephone'],
+    required: ['email'],
     properties: {
       email: {
         type: 'string',
         format: 'email',
         description: 'User email'
       },
+      password: {
+        type: 'string',
+        minLength: 8,
+        description: 'Password login for admin, universite and centre_formation'
+      },
       telephone: {
         type: 'string',
         description: 'User phone number'
       }
-    }
+    },
+    anyOf: [
+      { required: ['password'] },
+      { required: ['telephone'] }
+    ]
   }
 };
 
