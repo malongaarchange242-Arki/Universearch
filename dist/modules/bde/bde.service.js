@@ -12,11 +12,19 @@ class BdeService {
      */
     async createBde(data, profileId) {
         try {
+            const { data: universite, error: universiteError } = await this.supabase
+                .from('universites')
+                .select('id')
+                .eq('profile_id', profileId)
+                .single();
+            if (universiteError || !universite) {
+                throw new Error('Universite not found for authenticated profile');
+            }
             const { data: bde, error } = await this.supabase
                 .from('bde')
                 .insert({
                 // Do not trust client-provided universite_id — use authenticated profileId
-                universite_id: profileId,
+                universite_id: universite.id,
                 profile_id: profileId,
                 nom: data.nom || null,
                 description: data.description || null,
@@ -74,6 +82,54 @@ class BdeService {
                 throw new Error(`Failed to fetch BDE: ${error.message}`);
             }
             return data || null;
+        }
+        catch (err) {
+            throw new Error(`BDE fetch error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    /**
+     * Get BDE for the authenticated university profile.
+     * Tries the resolved university entity id first, then legacy fallbacks.
+     */
+    async getMyBde(profileId) {
+        try {
+            const { data: universite, error: universiteError } = await this.supabase
+                .from('universites')
+                .select('id, profile_id')
+                .eq('profile_id', profileId)
+                .single();
+            if (universiteError && universiteError.code !== 'PGRST116') {
+                throw new Error(`Failed to resolve university for profile: ${universiteError.message}`);
+            }
+            const candidateIds = [
+                universite?.id,
+                universite?.profile_id,
+                profileId,
+            ].filter(Boolean);
+            for (const candidateId of candidateIds) {
+                const { data, error } = await this.supabase
+                    .from('bde')
+                    .select('*')
+                    .eq('universite_id', candidateId)
+                    .eq('statut', 'actif')
+                    .single();
+                if (!error && data) {
+                    return data;
+                }
+                if (error && error.code !== 'PGRST116') {
+                    throw new Error(`Failed to fetch BDE: ${error.message}`);
+                }
+            }
+            const { data: legacyByProfile, error: legacyError } = await this.supabase
+                .from('bde')
+                .select('*')
+                .eq('profile_id', profileId)
+                .eq('statut', 'actif')
+                .single();
+            if (legacyError && legacyError.code !== 'PGRST116') {
+                throw new Error(`Failed to fetch legacy BDE by profile: ${legacyError.message}`);
+            }
+            return legacyByProfile || null;
         }
         catch (err) {
             throw new Error(`BDE fetch error: ${err instanceof Error ? err.message : String(err)}`);

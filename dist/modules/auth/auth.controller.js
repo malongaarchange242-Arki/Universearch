@@ -3,6 +3,52 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.refreshHandler = exports.loginHandler = exports.registerHandler = void 0;
 const auth_service_1 = require("./auth.service");
 const supabase_1 = require("../../plugins/supabase"); // Supabase Admin client
+const buildFullName = (prenom, nom) => {
+    const fullName = [prenom, nom]
+        .filter((value) => value && String(value).trim().length > 0)
+        .join(' ')
+        .trim();
+    return fullName || null;
+};
+const getLoginProfileSummary = async (userId) => {
+    let profileType = null;
+    let userType = null;
+    let nom = null;
+    let prenom = null;
+    let avatarUrl = null;
+    const { data: profileData, error: profileError } = await supabase_1.supabaseAdmin
+        .from('profiles')
+        .select('profile_type, nom, prenom, avatar_url')
+        .eq('id', userId)
+        .single();
+    if (profileError) {
+        throw profileError;
+    }
+    if (profileData) {
+        profileType = profileData.profile_type ?? null;
+        nom = profileData.nom ?? null;
+        prenom = profileData.prenom ?? null;
+        avatarUrl = profileData.avatar_url ?? null;
+    }
+    if (profileType === 'utilisateur') {
+        const { data: userTypeData, error: userTypeError } = await supabase_1.supabaseAdmin
+            .from('utilisateurs')
+            .select('user_type')
+            .eq('id', userId)
+            .single();
+        if (!userTypeError && userTypeData && userTypeData.user_type) {
+            userType = userTypeData.user_type;
+        }
+    }
+    return {
+        profileType,
+        userType,
+        nom,
+        prenom,
+        fullName: buildFullName(prenom, nom),
+        avatarUrl,
+    };
+};
 /**
  * Handler de création de compte utilisateur.
  */
@@ -41,15 +87,23 @@ const loginHandler = async (request, reply) => {
         // Récupérer profile_type et user_type
         let profileType = null;
         let userType = null;
+        let nom = null;
+        let prenom = null;
+        let fullName = null;
+        let avatarUrl = null;
         try {
             // 1️⃣ Récupérer profile_type
             const { data: profileData, error: profileError } = await supabase_1.supabaseAdmin
                 .from('profiles')
-                .select('profile_type')
+                .select('profile_type, nom, prenom, avatar_url')
                 .eq('id', result.userId)
                 .single();
             if (!profileError && profileData && profileData.profile_type) {
                 profileType = profileData.profile_type;
+                nom = profileData.nom ?? null;
+                prenom = profileData.prenom ?? null;
+                fullName = buildFullName(prenom, nom);
+                avatarUrl = profileData.avatar_url ?? null;
             }
             // 2️⃣ Si profile_type = 'utilisateur', récupérer user_type depuis table utilisateurs
             if (profileType === 'utilisateur') {
@@ -73,6 +127,10 @@ const loginHandler = async (request, reply) => {
             user: {
                 id: result.userId,
                 email: result.email ?? null,
+                nom,
+                prenom,
+                full_name: fullName,
+                avatar_url: avatarUrl,
                 profile_type: profileType,
                 user_type: userType,
             },
@@ -97,13 +155,36 @@ const refreshHandler = async (request, reply) => {
             });
         }
         const result = await (0, auth_service_1.refreshAccessToken)(supabase_1.supabaseAdmin, refreshToken);
+        let profileType = result.user.role;
+        let userType = null;
+        let nom = null;
+        let prenom = null;
+        let fullName = null;
+        let avatarUrl = null;
+        try {
+            const profileSummary = await getLoginProfileSummary(result.user.id);
+            profileType = profileSummary.profileType ?? profileType;
+            userType = profileSummary.userType;
+            nom = profileSummary.nom;
+            prenom = profileSummary.prenom;
+            fullName = profileSummary.fullName;
+            avatarUrl = profileSummary.avatarUrl;
+        }
+        catch (e) {
+            request.log.warn({ err: e }, 'Failed to fetch profile data for refresh response');
+        }
         return reply.status(200).send({
             token: result.token,
             refresh_token: result.refreshToken,
             user: {
                 id: result.user.id,
                 email: result.user.email,
-                profile_type: result.user.role,
+                nom,
+                prenom,
+                full_name: fullName,
+                avatar_url: avatarUrl,
+                profile_type: profileType,
+                user_type: userType,
             },
         });
     }

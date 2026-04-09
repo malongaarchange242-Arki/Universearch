@@ -88,6 +88,29 @@ class BdeController {
         }
     }
     /**
+     * Get BDE for the authenticated university
+     */
+    async getMyBde(request, reply) {
+        try {
+            const user = request.user;
+            if (!user) {
+                return reply.status(401).send({ success: false, error: 'Unauthorized' });
+            }
+            const bde = await this.bdeService.getMyBde(user.id);
+            return reply.send({
+                success: true,
+                data: bde || null,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return reply.status(400).send({
+                success: false,
+                error: message,
+            });
+        }
+    }
+    /**
      * Update BDE
      * Only the university that owns the BDE can update it
      */

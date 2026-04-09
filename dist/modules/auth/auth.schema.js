@@ -85,6 +85,7 @@ exports.registerSchema = {
 exports.loginSchema = {
     body: {
         type: 'object',
+        required: ['email'],
         properties: {
             email: {
                 type: 'string',
@@ -101,9 +102,9 @@ exports.loginSchema = {
                 description: 'User phone number'
             }
         },
-        oneOf: [
-            { required: ['email', 'password'] },
-            { required: ['email', 'telephone'] }
+        anyOf: [
+            { required: ['password'] },
+            { required: ['telephone'] }
         ]
     }
 };

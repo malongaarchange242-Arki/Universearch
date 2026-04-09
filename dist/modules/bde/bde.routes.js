@@ -13,6 +13,9 @@ async function registerBdeRoutes(fastify, opts) {
         schema: bde_schema_1.BdeSchemas.createBde,
         preHandler: [middleware_1.authenticate], // Require authentication
     }, (request, reply) => bdeController.createBde(request, reply));
+    fastify.get('/universites/me/bde', {
+        preHandler: [middleware_1.authenticate],
+    }, (request, reply) => bdeController.getMyBde(request, reply));
     // GET /universites/:universite_id/bde - Get BDE for a university
     fastify.get('/universites/:universite_id/bde', {
         schema: bde_schema_1.BdeSchemas.getUniversiteBde,
