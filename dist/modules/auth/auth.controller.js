@@ -91,11 +91,12 @@ const loginHandler = async (request, reply) => {
         let prenom = null;
         let fullName = null;
         let avatarUrl = null;
+        let genre = null;
         try {
             // 1️⃣ Récupérer profile_type
             const { data: profileData, error: profileError } = await supabase_1.supabaseAdmin
                 .from('profiles')
-                .select('profile_type, nom, prenom, avatar_url')
+                .select('profile_type, nom, prenom, avatar_url, genre')
                 .eq('id', result.userId)
                 .single();
             if (!profileError && profileData && profileData.profile_type) {
@@ -104,6 +105,7 @@ const loginHandler = async (request, reply) => {
                 prenom = profileData.prenom ?? null;
                 fullName = buildFullName(prenom, nom);
                 avatarUrl = profileData.avatar_url ?? null;
+                genre = profileData.genre ?? null;
             }
             // 2️⃣ Si profile_type = 'utilisateur', récupérer user_type depuis table utilisateurs
             if (profileType === 'utilisateur') {
@@ -133,6 +135,7 @@ const loginHandler = async (request, reply) => {
                 avatar_url: avatarUrl,
                 profile_type: profileType,
                 user_type: userType,
+                gender: genre,
             },
         });
     }

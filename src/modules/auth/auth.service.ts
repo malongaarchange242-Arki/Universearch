@@ -37,6 +37,7 @@ export interface AuthResult {
   token?: string | null;
   refreshToken?: string | null;
   userType?: 'bachelier' | 'etudiant' | 'parent';
+  gender?: string | null;
 }
 
 export interface LoginResult {
@@ -354,6 +355,9 @@ export const registerUser = async (
   result.refreshToken = refreshToken;
   if (payload.userType) {
     result.userType = payload.userType;
+  }
+  if (payload.genre) {
+    result.gender = payload.genre;
   }
 
   return result;

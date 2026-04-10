@@ -274,6 +274,9 @@ const registerUser = async (supabase, payload) => {
     if (payload.userType) {
         result.userType = payload.userType;
     }
+    if (payload.genre) {
+        result.gender = payload.genre;
+    }
     return result;
 };
 exports.registerUser = registerUser;
