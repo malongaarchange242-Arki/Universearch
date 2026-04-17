@@ -65,62 +65,120 @@ export type BulkUpdateFrais = z.infer<typeof BulkUpdateFraisSchema>;
 export type FraisResponse = z.infer<typeof FraisResponseSchema>;
 export type ListFraisQuery = z.infer<typeof ListFraisQuerySchema>;
 
-// Fastify schema definitions for OpenAPI documentation
+// ============================================
+// Fastify JSON Schema definitions
+// ============================================
+
+// JSON Schema for listing frais (response schema for Fastify)
 export const listFraisSchema = {
+  description: 'List tuition fees for authenticated university',
   tags: ['Frais de Scolarité'],
-  summary: 'List tuition fees for authenticated university',
-  querystring: ListFraisQuerySchema,
   response: {
     200: {
       description: 'List of tuition fees',
-      type: 'array',
-      items: FraisResponseSchema,
-    },
-    404: {
-      description: 'University not found',
-    },
-    401: {
-      description: 'Unauthorized',
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              universite_id: { type: 'string' },
+              level: { type: 'string', enum: ['L1', 'L2', 'L3', 'Master'] },
+              pole: { type: 'string', enum: ['Commercial', 'Polytechnique', 'Droit'] },
+              monthly_price: { type: 'number' },
+              yearly_price: { type: 'number' },
+              currency: { type: 'string' },
+              created_at: { type: 'string' },
+              updated_at: { type: 'string' },
+            },
+          },
+        },
+      },
     },
   },
 };
 
+// JSON Schema for creating/updating frais
 export const createFraisSchema = {
+  description: 'Create or update tuition fees for authenticated university',
   tags: ['Frais de Scolarité'],
-  summary: 'Create or update tuition fees for authenticated university',
-  body: CreateFraisRequestSchema,
+  body: {
+    type: 'object',
+    required: ['records'],
+    properties: {
+      records: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          required: ['level', 'pole', 'monthly_price', 'yearly_price'],
+          properties: {
+            level: { type: 'string', enum: ['L1', 'L2', 'L3', 'Master'] },
+            pole: { type: 'string', enum: ['Commercial', 'Polytechnique', 'Droit'] },
+            monthly_price: { type: 'number', minimum: 0 },
+            yearly_price: { type: 'number', minimum: 0 },
+          },
+        },
+      },
+    },
+  },
   response: {
     200: {
       description: 'Fees saved successfully',
       type: 'object',
       properties: {
         message: { type: 'string' },
-        data: { type: 'array', items: FraisResponseSchema },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              universite_id: { type: 'string' },
+              level: { type: 'string' },
+              pole: { type: 'string' },
+              monthly_price: { type: 'number' },
+              yearly_price: { type: 'number' },
+              currency: { type: 'string' },
+              created_at: { type: 'string' },
+              updated_at: { type: 'string' },
+            },
+          },
+        },
       },
-    },
-    400: {
-      description: 'Validation error',
-    },
-    401: {
-      description: 'Unauthorized',
     },
   },
 };
 
+// JSON Schema for getting specific frais by ID
 export const getFraisByIdSchema = {
+  description: 'Get specific tuition fee entry',
   tags: ['Frais de Scolarité'],
-  summary: 'Get specific tuition fee entry',
-  params: z.object({
-    id: z.string().uuid(),
-  }),
+  params: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+    },
+    required: ['id'],
+  },
   response: {
     200: {
       description: 'Fee entry',
       type: 'object',
-      properties: FraisResponseSchema.shape,
-    },
-    404: {
-      description: 'Fee entry not found',
+      properties: {
+        id: { type: 'string' },
+        universite_id: { type: 'string' },
+        level: { type: 'string' },
+        pole: { type: 'string' },
+        monthly_price: { type: 'number' },
+        yearly_price: { type: 'number' },
+        currency: { type: 'string' },
+        created_at: { type: 'string' },
+        updated_at: { type: 'string' },
+      },
     },
   },
 };
