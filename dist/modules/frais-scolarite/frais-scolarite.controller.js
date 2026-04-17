@@ -1,0 +1,185 @@
+"use strict";
+/**
+ * Controller for Frais de Scolarité endpoints
+ * Handles HTTP requests and delegates to service
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FraisScolariteController = void 0;
+class FraisScolariteController {
+    service;
+    constructor(service) {
+        this.service = service;
+    }
+    /**
+     * GET /universites/me/frais-scolarite
+     * Get all tuition fees for the authenticated university
+     */
+    async getFraisForMyUniversite(req, reply) {
+        try {
+            const userId = req.user?.id;
+            const query = req.query || {};
+            // Parse query parameters
+            const filters = {};
+            if (query.level)
+                filters.level = String(query.level);
+            if (query.pole)
+                filters.pole = String(query.pole);
+            // Get the university ID from the user's token
+            const universite_id = req.user?.universite_id || userId;
+            if (!universite_id) {
+                return reply.status(400).send({
+                    error: 'Unable to determine university ID',
+                });
+            }
+            const frais = await this.service.getFraisByUniversiteId(universite_id, filters);
+            reply.status(200).send({
+                message: 'Frais de scolarité retrieved successfully',
+                data: frais,
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({
+                error: err.message,
+            });
+        }
+    }
+    /**
+     * POST /universites/me/frais-scolarite
+     * Create or update tuition fees for the authenticated university with upsert logic
+     */
+    async createOrUpdateFraisForMyUniversite(req, reply) {
+        try {
+            const userId = req.user?.id;
+            const body = req.body || {};
+            // Get the university ID from the user's token
+            const universite_id = req.user?.universite_id || userId;
+            if (!universite_id) {
+                return reply.status(400).send({
+                    error: 'Unable to determine university ID',
+                });
+            }
+            if (!body.records || !Array.isArray(body.records) || body.records.length === 0) {
+                return reply.status(400).send({
+                    error: 'records field is required and must be a non-empty array',
+                });
+            }
+            // Upsert frais (insert if new, update if exists based on level+pole)
+            const frais = await this.service.upsertFrais(universite_id, body.records);
+            reply.status(200).send({
+                message: 'Frais de scolarité saved successfully',
+                data: frais,
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(400).send({
+                error: err.message,
+            });
+        }
+    }
+    /**
+     * GET /universites/me/frais-scolarite/:id
+     * Get a specific tuition fee entry
+     */
+    async getFraisById(req, reply) {
+        try {
+            const { id } = req.params || {};
+            if (!id) {
+                return reply.status(400).send({
+                    error: 'Frais ID is required',
+                });
+            }
+            const frais = await this.service.getFraisById(id);
+            if (!frais) {
+                return reply.status(404).send({
+                    error: 'Frais entry not found',
+                });
+            }
+            reply.status(200).send(frais);
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({
+                error: err.message,
+            });
+        }
+    }
+    /**
+     * PUT /universites/me/frais-scolarite/:id
+     * Update a specific tuition fee entry
+     */
+    async updateFraisById(req, reply) {
+        try {
+            const { id } = req.params || {};
+            const body = req.body || {};
+            if (!id) {
+                return reply.status(400).send({
+                    error: 'Frais ID is required',
+                });
+            }
+            const frais = await this.service.updateFrais(id, body);
+            reply.status(200).send({
+                message: 'Frais updated successfully',
+                data: frais,
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(400).send({
+                error: err.message,
+            });
+        }
+    }
+    /**
+     * DELETE /universites/me/frais-scolarite/:id
+     * Delete a specific tuition fee entry
+     */
+    async deleteFraisById(req, reply) {
+        try {
+            const { id } = req.params || {};
+            if (!id) {
+                return reply.status(400).send({
+                    error: 'Frais ID is required',
+                });
+            }
+            await this.service.deleteFrais(id);
+            reply.status(200).send({
+                message: 'Frais deleted successfully',
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({
+                error: err.message,
+            });
+        }
+    }
+    /**
+     * GET /universites/me/frais-scolarite/stats
+     * Get statistics about tuition fees
+     */
+    async getFraisStatistics(req, reply) {
+        try {
+            const userId = req.user?.id;
+            const universite_id = req.user?.universite_id || userId;
+            if (!universite_id) {
+                return reply.status(400).send({
+                    error: 'Unable to determine university ID',
+                });
+            }
+            const stats = await this.service.getFraisStatistics(universite_id);
+            reply.status(200).send({
+                message: 'Statistics retrieved successfully',
+                data: stats,
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            reply.status(500).send({
+                error: err.message,
+            });
+        }
+    }
+}
+exports.FraisScolariteController = FraisScolariteController;

@@ -13,7 +13,7 @@
  *   GET    /universites/:id/frais-scolarite             (get public frais for university)
  */
 
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { FastifyInstance, FastifyPluginOptions, FastifyReply } from 'fastify';
 import { FraisScolariteController } from './frais-scolarite.controller';
 import { FraisScolariteService } from './frais-scolarite.service';
 import { supabaseAdmin } from '../../plugins/supabase';
@@ -109,9 +109,9 @@ export const fraisScolariteRoutes = async (
    * Get public frais for a specific university
    * This endpoint can be called without authentication to fetch fees for a specific university
    */
-  fastify.get(
+  app.get(
     '/:id/frais-scolarite',
-    async (req: any, reply) => {
+    async (req: any, reply: FastifyReply) => {
       try {
         const { id } = req.params;
 
