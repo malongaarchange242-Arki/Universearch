@@ -284,80 +284,39 @@ class UniversitesService {
         return publicURL;
     }
     /**
-     * Normalise un texte en slug pour matching
-     * Gère les accents, caractères spéciaux, espaces, etc.
-     */
-    normalizeToSlug(text) {
-        if (!text)
-            return '';
-        return text
-            .toLowerCase()
-            .trim()
-            .normalize('NFD') // Normalize Unicode accents
-            .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-            .replace(/&/g, 'et') // Replace & with 'et'
-            .replace(/[^\w\s-]/g, '') // Remove all special chars except spaces/hyphens/word chars
-            .replace(/\s+/g, '-') // Replace whitespace with hyphens
-            .replace(/-+/g, '-') // Collapse multiple hyphens
-            .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-    }
-    /**
      * Attacher plusieurs filières à une université (par universiteId).
+     * Convertit les slugs en IDs via la table filieres, puis insère dans universite_filieres.
      * Évite les doublons en vérifiant les associations existantes.
-     * Accepte les IDs (UUIDs) ou slugs (comme "genie-informatique")
      */
     async attachFilieresToUniversite(universiteId, filiereIds) {
         if (!Array.isArray(filiereIds) || filiereIds.length === 0) {
             return { inserted: 0, skipped: [] };
         }
-        // Normalize incoming IDs
+        // Normalize and deduplicate incoming IDs/slugs
         const ids = Array.from(new Set(filiereIds.map(String)));
-        console.log(`🔗 [DEBUG] attachFilieresToUniversite: trying to attach ${ids.length} filières:`, ids);
-        // Strategy 1: Try to find by exact UUID match
-        let { data: filieres, error: filieresErr } = await this.supabase
+        console.log(`🔗 [DEBUG] attachFilieresToUniversite called with ${ids.length} filières:`, ids);
+        // 🔥 ÉTAPE 1: Chercher par ID exact (UUID) OU par slug
+        // La requête va chercher en deux stratégies:
+        // - D'abord essayer de matcher par 'id' (si c'est un UUID)
+        // - Sinon essayer par 'slug' (si c'est un slug comme "genie-informatique")
+        console.log(`🔍 [DEBUG] Querying filieres table...`);
+        const { data: filieres, error: filieresErr } = await this.supabase
             .from('filieres')
-            .select('id, nom')
-            .in('id', ids);
+            .select('id, slug, nom')
+            .or(`id.in.(${ids.map(id => `"${id}"`).join(',')}),slug.in.(${ids.map(id => `"${id}"`).join(',')})`);
         if (filieresErr) {
-            console.warn(`⚠️ Query by UUID failed:`, filieresErr.message);
-            filieres = [];
+            console.error(`❌ [DEBUG] Query failed:`, filieresErr.message);
+            throw new Error(`Failed to resolve filieres: ${filieresErr.message}`);
         }
-        let validIds = (filieres || []).map((f) => f.id).filter(Boolean);
-        const matchedByUuid = new Set(validIds);
-        console.log(`✅ Found ${validIds.length} filieres by UUID lookup`, validIds);
-        // Strategy 2: If we didn't find all, try to match by slug
-        const remainingToFind = ids.filter(id => !matchedByUuid.has(id));
-        if (remainingToFind.length > 0) {
-            console.log(`🔍 Trying to match ${remainingToFind.length} remaining IDs by slug:`, remainingToFind);
-            // Query all filieres to do slug matching
-            const { data: allFilieres } = await this.supabase
-                .from('filieres')
-                .select('id, nom');
-            if (allFilieres && allFilieres.length > 0) {
-                const inputSlugs = remainingToFind.map(id => ({ input: id, normalized: this.normalizeToSlug(id) }));
-                inputSlugs.forEach(({ input, normalized }) => {
-                    const match = allFilieres.find((f) => {
-                        const filiereNormalized = this.normalizeToSlug(f.nom || '');
-                        return filiereNormalized === normalized;
-                    });
-                    if (match) {
-                        console.log(`✅ Matched slug "${input}" → "${match.nom}" (UUID: ${match.id})`);
-                        validIds.push(match.id);
-                    }
-                    else {
-                        console.warn(`❌ No match found for slug "${input}" (normalized: "${normalized}")`);
-                    }
-                });
-            }
-        }
-        // Remove duplicates
-        validIds = Array.from(new Set(validIds));
-        console.log(`📊 Total valid IDs after resolution: ${validIds.length}`, validIds);
+        const validIds = (filieres || []).map((f) => f.id).filter(Boolean);
+        const matchedSlugs = (filieres || []).map((f) => ({ id: f.id, slug: f.slug, nom: f.nom }));
+        console.log(`✅ [DEBUG] Found ${validIds.length} matching filieres:`, matchedSlugs);
         if (validIds.length === 0) {
-            console.warn(`⚠️ No valid filières found for any of:`, ids);
+            console.warn(`⚠️ [DEBUG] No filieres found for any of:`, ids);
             return { inserted: 0, skipped: ids };
         }
-        // Find already existing associations to prevent duplicates
+        // 🔥 ÉTAPE 2: Vérifier les associations existantes
+        console.log(`🔄 [DEBUG] Checking existing associations for university ${universiteId}...`);
         const { data: existing, error: existingErr } = await this.supabase
             .from('universite_filieres')
             .select('filiere_id')
@@ -367,28 +326,29 @@ class UniversitesService {
             throw new Error(`Failed to check existing associations: ${existingErr.message}`);
         }
         const existingIds = new Set((existing || []).map((r) => r.filiere_id));
-        console.log(`🔄 Existing associations: ${existingIds.size}`, Array.from(existingIds));
+        console.log(`📊 [DEBUG] Existing associations: ${existingIds.size}`);
+        // 🔥 ÉTAPE 3: Insérer les nouvelles associations
         const toInsert = validIds.filter(id => !existingIds.has(id));
-        console.log(`➕ Will insert ${toInsert.length} new associations`, toInsert);
+        console.log(`➕ [DEBUG] Will insert ${toInsert.length} new associations`, toInsert);
         if (toInsert.length === 0) {
-            console.log(`ℹ️ All filières were already associated`);
+            console.log(`ℹ️ [DEBUG] All filières were already associated`);
             return { inserted: 0, skipped: validIds };
         }
-        const rows = toInsert.map(id => ({
+        const rows = toInsert.map(filiereId => ({
             id: (0, crypto_1.randomUUID)(),
             universite_id: universiteId,
-            filiere_id: id,
+            filiere_id: filiereId,
             created_at: new Date().toISOString()
         }));
-        console.log(`💾 Inserting ${rows.length} rows:`, rows);
+        console.log(`💾 [DEBUG] Inserting ${rows.length} rows into universite_filieres:`, rows);
         const { error: insertErr } = await this.supabase
             .from('universite_filieres')
             .insert(rows);
         if (insertErr) {
-            console.error(`❌ Insert failed:`, insertErr);
+            console.error(`❌ [DEBUG] Insert failed:`, insertErr.message);
             throw new Error(`Failed to insert universite_filieres: ${insertErr.message}`);
         }
-        console.log(`✅ Successfully inserted ${rows.length} associations to universite_filieres`);
+        console.log(`✅ [DEBUG] Successfully inserted ${rows.length} associations`);
         return { inserted: rows.length, skipped: Array.from(existingIds) };
     }
     /**
