@@ -141,12 +141,7 @@ export class UniversitesService {
     // Interdire la modification du statut via cette route
     const { statut, profile_id, id, date_creation, selectedFilieres, ...updateData } = payload as any;
 
-    // 🔥 DIAGNOSTIC: Log ce qui a été reçu
-    console.log('🔍 [DEBUG] updateMyUniversite - payload reçu:', JSON.stringify(payload));
-    console.log('🔍 [DEBUG] updateMyUniversite - selectedFilieres:', selectedFilieres);
-    console.log('🔍 [DEBUG] updateMyUniversite - type:', typeof selectedFilieres, Array.isArray(selectedFilieres));
-
-    // If frontend sent selectedFilieres (array), persist as a comma-separated domaine
+    // If frontend sent selectedFilieres (array), persist as a comma-separated domaine (for backward compatibility)
     if (selectedFilieres && Array.isArray(selectedFilieres)) {
       updateData.domaine = selectedFilieres.join(', ');
     }
@@ -358,7 +353,7 @@ export class UniversitesService {
 
   /**
    * Attacher plusieurs filières à une université (par universiteId).
-   * Convertit les slugs en IDs via la table filieres, puis insère dans universite_filieres.
+   * Accepte les UUIDs des filières et les insère dans universite_filieres.
    * Évite les doublons en vérifiant les associations existantes.
    */
   async attachFilieresToUniversite(universiteId: string, filiereIds: string[]): Promise<{ inserted: number; skipped: string[] }> {
@@ -366,33 +361,27 @@ export class UniversitesService {
       return { inserted: 0, skipped: [] };
     }
 
-    // Normalize and deduplicate incoming IDs/slugs
+    // Normalize and deduplicate incoming IDs
     const ids = Array.from(new Set(filiereIds.map(String)));
-    console.log(`🔗 [DEBUG] attachFilieresToUniversite called with ${ids.length} filières:`, ids);
+    console.log(`🔗 [DEBUG] attachFilieresToUniversite called with ${ids.length} filières`);
 
-    // 🔥 ÉTAPE 1: Chercher par ID exact (UUID) OU par slug
-    // La requête va chercher en deux stratégies:
-    // - D'abord essayer de matcher par 'id' (si c'est un UUID)
-    // - Sinon essayer par 'slug' (si c'est un slug comme "genie-informatique")
-    
-    console.log(`🔍 [DEBUG] Querying filieres table...`);
+    // 🔥 ÉTAPE 1: Valider que les filières existent en base
+    console.log(`🔍 [DEBUG] Validating filieres against database...`);
     const { data: filieres, error: filieresErr } = await this.supabase
       .from('filieres')
-      .select('id, slug, nom')
-      .or(`id.in.(${ids.map(id => `"${id}"`).join(',')}),slug.in.(${ids.map(id => `"${id}"`).join(',')})`);
+      .select('id')
+      .in('id', ids as any);
 
     if (filieresErr) {
       console.error(`❌ [DEBUG] Query failed:`, filieresErr.message);
-      throw new Error(`Failed to resolve filieres: ${filieresErr.message}`);
+      throw new Error(`Failed to validate filieres: ${filieresErr.message}`);
     }
 
     const validIds = (filieres || []).map((f: any) => f.id).filter(Boolean);
-    const matchedSlugs = (filieres || []).map((f: any) => ({ id: f.id, slug: f.slug, nom: f.nom }));
-
-    console.log(`✅ [DEBUG] Found ${validIds.length} matching filieres:`, matchedSlugs);
+    console.log(`✅ [DEBUG] Found ${validIds.length} valid filieres out of ${ids.length}`);
 
     if (validIds.length === 0) {
-      console.warn(`⚠️ [DEBUG] No filieres found for any of:`, ids);
+      console.warn(`⚠️ [DEBUG] No valid filieres found for:`, ids);
       return { inserted: 0, skipped: ids };
     }
 
@@ -405,21 +394,23 @@ export class UniversitesService {
       .in('filiere_id', validIds as any);
 
     if (existingErr) {
+      console.error(`❌ [DEBUG] Failed to check existing:`, existingErr.message);
       throw new Error(`Failed to check existing associations: ${existingErr.message}`);
     }
 
     const existingIds = new Set((existing || []).map((r: any) => r.filiere_id));
-    console.log(`📊 [DEBUG] Existing associations: ${existingIds.size}`);
+    console.log(`📊 [DEBUG] Found ${existingIds.size} existing associations`);
 
-    // 🔥 ÉTAPE 3: Insérer les nouvelles associations
+    // 🔥 ÉTAPE 3: Préparer les nouvelles associations
     const toInsert = validIds.filter(id => !existingIds.has(id));
-    console.log(`➕ [DEBUG] Will insert ${toInsert.length} new associations`, toInsert);
+    console.log(`➕ [DEBUG] Will insert ${toInsert.length} new associations`);
 
     if (toInsert.length === 0) {
       console.log(`ℹ️ [DEBUG] All filières were already associated`);
       return { inserted: 0, skipped: validIds };
     }
 
+    // 🔥 ÉTAPE 4: Insérer les lignes
     const rows = toInsert.map(filiereId => ({
       id: randomUUID(),
       universite_id: universiteId,
@@ -427,7 +418,7 @@ export class UniversitesService {
       created_at: new Date().toISOString()
     }));
 
-    console.log(`💾 [DEBUG] Inserting ${rows.length} rows into universite_filieres:`, rows);
+    console.log(`💾 [DEBUG] Inserting ${rows.length} rows into universite_filieres`);
 
     const { error: insertErr } = await this.supabase
       .from('universite_filieres')
