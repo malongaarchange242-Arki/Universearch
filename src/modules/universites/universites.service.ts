@@ -445,6 +445,8 @@ export class UniversitesService {
       .eq('profile_id', userId)
       .single();
     
+    console.log(`📊 [DEBUG] Supabase response: data=${JSON.stringify(uni)}, error=${uniErr?.message || 'none'}`);
+    
     if (uniErr) {
       console.error(`❌ [DEBUG] Error querying universite: ${uniErr.message}`);
       throw new Error(`Error finding universe: ${uniErr.message}`);
