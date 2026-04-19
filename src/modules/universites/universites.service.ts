@@ -159,6 +159,8 @@ export class UniversitesService {
       throw new Error(`Failed to update my université: ${error.message}`);
     }
 
+    let universite: UniversiteRecord;
+
     if (!data || data.length === 0) {
       // Université not found, create it
       const uniId = randomUUID();
@@ -191,10 +193,35 @@ export class UniversitesService {
         throw new Error(`Failed to create université: ${insertError.message}`);
       }
 
-      return insertData;
+      universite = insertData;
+    } else {
+      universite = data[0];
     }
 
-    return data[0];
+    // 🔥 NEW: If frontend sent selectedFilieres, now INSERT them into universite_filieres!
+    if (selectedFilieres && Array.isArray(selectedFilieres) && selectedFilieres.length > 0) {
+      try {
+        // Convert slug/name -> UUID by looking them up in filieres table
+        const { data: filiereData, error: filieresErr } = await this.supabase
+          .from('filieres')
+          .select('id')
+          .or(`id.in.(${selectedFilieres.map(s => `"${s}"`).join(',')}),nom.in.(${selectedFilieres.map(s => `"${s}"`).join(',')})`)
+          .limit(1000);
+
+        if (filieresErr) {
+          console.warn(`Warning: Failed to resolve filieres: ${filieresErr.message}`);
+        } else if (filiereData && filiereData.length > 0) {
+          const filiereIds = filiereData.map((f: any) => f.id);
+          console.log(`🔗 [DEBUG] Attaching ${filiereIds.length} filières to université ${universite.id}`);
+          await this.attachFilieresToUniversite(universite.id, filiereIds);
+        }
+      } catch (err) {
+        console.warn(`Warning: Failed to attach filieres: ${(err as Error).message}`);
+        // Don't throw - update was successful, just filiere attachment failed
+      }
+    }
+
+    return universite;
   }
 
   /**
