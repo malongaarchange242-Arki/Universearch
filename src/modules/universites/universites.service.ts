@@ -437,9 +437,27 @@ export class UniversitesService {
    * Attacher plusieurs filières à mon université (résout l'universite via profile_id)
    */
   async attachFilieresToMyUniversite(userId: string, filiereIds: string[]) {
-    const { data: uni, error: uniErr } = await this.supabase.from('universites').select('id').eq('profile_id', userId).single();
-    if (uniErr || !uni) throw new Error('Université not found for your account');
+    console.log(`🔍 [DEBUG] attachFilieresToMyUniversite: resolving universite for profile_id=${userId}`);
+    
+    const { data: uni, error: uniErr } = await this.supabase
+      .from('universites')
+      .select('id')
+      .eq('profile_id', userId)
+      .single();
+    
+    if (uniErr) {
+      console.error(`❌ [DEBUG] Error querying universite: ${uniErr.message}`);
+      throw new Error(`Error finding universe: ${uniErr.message}`);
+    }
+    
+    if (!uni) {
+      console.error(`❌ [DEBUG] No universite found for profile_id=${userId}`);
+      throw new Error('Université not found for your account');
+    }
+    
     const uniId = (uni as any).id as string;
+    console.log(`✅ [DEBUG] Resolved profile_id=${userId} → universite_id=${uniId}`);
+    
     return this.attachFilieresToUniversite(uniId, filiereIds);
   }
 }
