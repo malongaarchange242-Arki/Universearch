@@ -48,12 +48,18 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       // 🔥 EN DÉVELOPPEMENT: faire confiance au JWT sans vérifier la signature
       // (utile quand le token vient d'une source externe ou de production)
       if (process.env.NODE_ENV === 'development') {
+        request.log?.info(`🔍 [AUTH] DEV mode: decoding JWT without verification`);
         // Décoder sans vérification en dev
         const parts = token.split('.');
-        if (parts.length !== 3) throw new Error('Invalid JWT format');
+        if (parts.length !== 3) {
+          request.log?.error(`❌ [AUTH] Invalid JWT format: ${parts.length} parts`);
+          throw new Error('Invalid JWT format');
+        }
         try {
           decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-        } catch {
+          request.log?.info(`✅ [AUTH] JWT decoded successfully: id=${decoded.id}`);
+        } catch (e) {
+          request.log?.error(`❌ [AUTH] Failed to decode JWT payload: ${e}`);
           throw new Error('Invalid JWT payload');
         }
       } else {
@@ -62,6 +68,7 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
       }
     } catch (_err) {
       incCounter('auth.invalid_token');
+      request.log?.error(`❌ [AUTH] Exception during decode: ${_err}`);
       request.log?.info('authenticate: invalid or expired token');
       return reply.status(401).send({ error: 'Invalid or expired token' });
     }
