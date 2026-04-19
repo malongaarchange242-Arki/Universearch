@@ -201,20 +201,10 @@ export class UniversitesService {
     // 🔥 NEW: If frontend sent selectedFilieres, now INSERT them into universite_filieres!
     if (selectedFilieres && Array.isArray(selectedFilieres) && selectedFilieres.length > 0) {
       try {
-        // Convert slug/name -> UUID by looking them up in filieres table
-        const { data: filiereData, error: filieresErr } = await this.supabase
-          .from('filieres')
-          .select('id')
-          .or(`id.in.(${selectedFilieres.map(s => `"${s}"`).join(',')}),nom.in.(${selectedFilieres.map(s => `"${s}"`).join(',')})`)
-          .limit(1000);
-
-        if (filieresErr) {
-          console.warn(`Warning: Failed to resolve filieres: ${filieresErr.message}`);
-        } else if (filiereData && filiereData.length > 0) {
-          const filiereIds = filiereData.map((f: any) => f.id);
-          console.log(`🔗 [DEBUG] Attaching ${filiereIds.length} filières to université ${universite.id}`);
-          await this.attachFilieresToUniversite(universite.id, filiereIds);
-        }
+        console.log(`🔗 [DEBUG] Attaching ${selectedFilieres.length} filières to université ${universite.id}:`, selectedFilieres);
+        // Pass filieres directly - attachFilieresToUniversite will validate them against filieres table
+        const result = await this.attachFilieresToUniversite(universite.id, selectedFilieres);
+        console.log(`✅ [DEBUG] Filière attachment result:`, result);
       } catch (err) {
         console.warn(`Warning: Failed to attach filieres: ${(err as Error).message}`);
         // Don't throw - update was successful, just filiere attachment failed
@@ -364,6 +354,7 @@ export class UniversitesService {
   /**
    * Attacher plusieurs filières à une université (par universiteId).
    * Évite les doublons en vérifiant les associations existantes.
+   * Accepte les IDs (UUIDs) ou slugs (comme "genie-informatique")
    */
   async attachFilieresToUniversite(universiteId: string, filiereIds: string[]): Promise<{ inserted: number; skipped: string[] }> {
     if (!Array.isArray(filiereIds) || filiereIds.length === 0) {
@@ -372,19 +363,59 @@ export class UniversitesService {
 
     // Normalize incoming IDs
     const ids = Array.from(new Set(filiereIds.map(String)));
+    console.log(`🔗 [DEBUG] attachFilieresToUniversite: trying to attach ${ids.length} filières:`, ids);
 
-    // Ensure provided filiere IDs exist
-    const { data: filieres, error: filieresErr } = await this.supabase
+    // Strategy 1: Try to find by exact ID match (UUIDs)
+    let { data: filieres, error: filieresErr } = await this.supabase
       .from('filieres')
       .select('id')
       .in('id', ids as any);
 
     if (filieresErr) {
-      throw new Error(`Failed to validate filieres: ${filieresErr.message}`);
+      console.warn(`⚠️ Query by ID failed:`, filieresErr.message);
+      filieres = [];
     }
 
-    const validIds = (filieres || []).map((f: any) => f.id).filter(Boolean);
-    if (validIds.length === 0) return { inserted: 0, skipped: ids };
+    let validIds = (filieres || []).map((f: any) => f.id).filter(Boolean);
+    console.log(`✅ Found ${validIds.length} filieres by UUID lookup`, validIds);
+
+    // Strategy 2: If we didn't find all, try to match by NOM (for slug inputs)
+    if (validIds.length < ids.length) {
+      const remainingToFind = ids.filter(id => !validIds.includes(id));
+      console.log(`🔍 Trying to match ${remainingToFind.length} remaining IDs by NOM:`, remainingToFind);
+
+      // Query all filieres and try to match by name/slug pattern
+      const { data: allFilieres } = await this.supabase.from('filieres').select('id, nom');
+      
+      if (allFilieres && allFilieres.length > 0) {
+        remainingToFind.forEach(slug => {
+          // Try to find a filière where nom matches (case-insensitive)
+          // OR where the name can be converted to this slug
+          const match = allFilieres.find((f: any) => {
+            const filiereSlug = (f.nom || '').toLowerCase().replace(/[éè]/g, 'e').replace(/\s+/g, '-');
+            const inputSlug = (slug || '').toLowerCase();
+            return filiereSlug === inputSlug || f.nom?.toLowerCase() === slug.toLowerCase();
+          });
+
+          if (match) {
+            console.log(`✅ Matched slug "${slug}" to filière "${match.nom}" (ID: ${match.id})`);
+            validIds.push(match.id);
+          } else {
+            console.warn(`❌ Could not match slug "${slug}" to any filière`);
+          }
+        });
+      }
+    }
+
+    console.log(`📊 Final validIds to insert: ${validIds.length}`, validIds);
+
+    if (validIds.length === 0) {
+      console.warn(`⚠️ No valid filières found for:`, ids);
+      return { inserted: 0, skipped: ids };
+    }
+
+    // Remove duplicates
+    validIds = Array.from(new Set(validIds));
 
     // Find already existing associations to prevent duplicates
     const { data: existing, error: existingErr } = await this.supabase
@@ -398,8 +429,11 @@ export class UniversitesService {
     }
 
     const existingIds = new Set((existing || []).map((r: any) => r.filiere_id));
+    console.log(`🔄 Existing associations: ${existingIds.size}`, Array.from(existingIds));
 
     const toInsert = validIds.filter(id => !existingIds.has(id));
+    console.log(`➕ Will insert ${toInsert.length} new associations`, toInsert);
+
     if (toInsert.length === 0) {
       return { inserted: 0, skipped: validIds }; // nothing new
     }
@@ -411,6 +445,7 @@ export class UniversitesService {
       throw new Error(`Failed to insert universite_filieres: ${insertErr.message}`);
     }
 
+    console.log(`✅ Successfully inserted ${rows.length} associations to universite_filieres`);
     return { inserted: rows.length, skipped: Array.from(existingIds) };
   }
 
