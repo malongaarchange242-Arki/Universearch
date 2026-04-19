@@ -141,6 +141,11 @@ export class UniversitesService {
     // Interdire la modification du statut via cette route
     const { statut, profile_id, id, date_creation, selectedFilieres, ...updateData } = payload as any;
 
+    // 🔥 DIAGNOSTIC: Log ce qui a été reçu
+    console.log('🔍 [DEBUG] updateMyUniversite - payload reçu:', JSON.stringify(payload));
+    console.log('🔍 [DEBUG] updateMyUniversite - selectedFilieres:', selectedFilieres);
+    console.log('🔍 [DEBUG] updateMyUniversite - type:', typeof selectedFilieres, Array.isArray(selectedFilieres));
+
     // If frontend sent selectedFilieres (array), persist as a comma-separated domaine
     if (selectedFilieres && Array.isArray(selectedFilieres)) {
       updateData.domaine = selectedFilieres.join(', ');
