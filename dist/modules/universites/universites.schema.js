@@ -67,6 +67,8 @@ exports.updateMyUniversiteSchema = {
             lien_site: { type: 'string' },
             domaine: { type: 'string' },
             video_url: { type: 'string' },
+            // Accept selectedFilieres if provided (for backward compatibility)
+            selectedFilieres: { type: 'array', items: { type: 'string' } },
         },
         additionalProperties: false,
     },
@@ -121,7 +123,8 @@ exports.attachFilieresSchema = {
     body: {
         type: 'object',
         properties: {
-            filiereIds: { type: 'array', items: { type: 'string', format: 'uuid' } }
+            // Accept both UUIDs and slugs (e.g., "genie-informatique")
+            filiereIds: { type: 'array', items: { type: 'string' } }
         },
         required: ['filiereIds'],
         additionalProperties: false,
