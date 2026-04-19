@@ -77,7 +77,24 @@ const authenticate = async (request, reply) => {
         }
         let decoded;
         try {
-            decoded = jsonwebtoken_1.default.verify(token, secret);
+            // 🔥 EN DÉVELOPPEMENT: faire confiance au JWT sans vérifier la signature
+            // (utile quand le token vient d'une source externe ou de production)
+            if (process.env.NODE_ENV === 'development') {
+                // Décoder sans vérification en dev
+                const parts = token.split('.');
+                if (parts.length !== 3)
+                    throw new Error('Invalid JWT format');
+                try {
+                    decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+                }
+                catch {
+                    throw new Error('Invalid JWT payload');
+                }
+            }
+            else {
+                // EN PRODUCTION: vérifier la signature
+                decoded = jsonwebtoken_1.default.verify(token, secret);
+            }
         }
         catch (_err) {
             (0, metrics_1.incCounter)('auth.invalid_token');
