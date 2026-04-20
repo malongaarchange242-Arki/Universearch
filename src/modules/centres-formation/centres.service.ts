@@ -230,12 +230,12 @@ export class CentresService {
       await this.supabase
         .from('centre_formation_filieres')
         .delete()
-        .eq('centre_id', centre.id);
+        .eq('centre_formation_id', centre.id);
 
       // Insert new
       if (selectedFilieres.length > 0) {
         const inserts = selectedFilieres.map((filiereId: string) => ({
-          centre_id: centre.id,
+          centre_formation_id: centre.id,
           filiere_id: filiereId,
         }));
         // debug log to help troubleshoot why table might be empty
@@ -403,7 +403,7 @@ export class CentresService {
     const { data: existingAssocs, error: existingErr } = await this.supabase
       .from('centre_formation_filieres')
       .select('filiere_id')
-      .eq('centre_id', centreId);
+      .eq('centre_formation_id', centreId);
 
     if (existingErr) {
       throw new Error(`Failed to check existing associations: ${existingErr.message}`);
@@ -426,7 +426,7 @@ export class CentresService {
 
     // 6️⃣ Insérer les nouvelles associations
     const inserts = newIds.map(filiereId => ({
-      centre_id: centreId,
+      centre_formation_id: centreId,
       filiere_id: filiereId,
       id: randomUUID(),
     }));
