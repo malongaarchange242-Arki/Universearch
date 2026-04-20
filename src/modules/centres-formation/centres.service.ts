@@ -362,4 +362,91 @@ export class CentresService {
 
     return publicURL;
   }
+
+  /**
+   * Attacher les filières au centre de l'utilisateur connecté
+   * POST /centres/me/filieres
+   */
+  async attachFilieresToMyCentre(
+    userId: string,
+    filiereIds: string[]
+  ): Promise<{ inserted: number; skipped: number; message: string }> {
+    // 1️⃣ Trouver le centre de l'utilisateur
+    const { data: centre, error: centreErr } = await this.supabase
+      .from('centres_formation')
+      .select('id')
+      .eq('profile_id', userId)
+      .single();
+
+    if (centreErr || !centre) {
+      throw new Error('Centre not found for your account');
+    }
+
+    const centreId = (centre as any).id as string;
+
+    // 2️⃣ Dédupliquer les IDs
+    const uniqueIds = Array.from(new Set(filiereIds.map(String)));
+
+    // 3️⃣ Vérifier que les filières existent
+    const { data: validFilieres, error: filieresErr } = await this.supabase
+      .from('filieres_centre')
+      .select('id')
+      .in('id', uniqueIds);
+
+    if (filieresErr) {
+      throw new Error(`Failed to validate filieres: ${filieresErr.message}`);
+    }
+
+    console.log(`✅ [DEBUG] Found ${(validFilieres || []).length} valid filieres out of ${uniqueIds.length}`);
+
+    // 4️⃣ Récupérer les associations existantes
+    const { data: existingAssocs, error: existingErr } = await this.supabase
+      .from('centre_formation_filieres')
+      .select('filiere_id')
+      .eq('centre_id', centreId);
+
+    if (existingErr) {
+      throw new Error(`Failed to check existing associations: ${existingErr.message}`);
+    }
+
+    const existingIds = new Set((existingAssocs || []).map((a: any) => a.filiere_id));
+    console.log(`📊 [DEBUG] Found ${existingIds.size} existing associations`);
+
+    // 5️⃣ Calculer les nouvelles associations
+    const newIds = uniqueIds.filter(id => !existingIds.has(id));
+    console.log(`ℹ️ [DEBUG] ${newIds.length} new associations to insert`);
+
+    if (newIds.length === 0) {
+      return {
+        inserted: 0,
+        skipped: uniqueIds.length,
+        message: 'All filieres were already associated'
+      };
+    }
+
+    // 6️⃣ Insérer les nouvelles associations
+    const inserts = newIds.map(filiereId => ({
+      centre_id: centreId,
+      filiere_id: filiereId,
+      id: randomUUID(),
+    }));
+
+    console.log(`🔗 [DEBUG] Inserting ${inserts.length} rows into centre_formation_filieres`);
+
+    const { error: insertErr } = await this.supabase
+      .from('centre_formation_filieres')
+      .insert(inserts);
+
+    if (insertErr) {
+      throw new Error(`Failed to insert associations: ${insertErr.message}`);
+    }
+
+    console.log(`✅ [DEBUG] Successfully inserted ${newIds.length} associations`);
+
+    return {
+      inserted: newIds.length,
+      skipped: existingIds.size,
+      message: `Successfully attached ${newIds.length} filieres`
+    };
+  }
 }

@@ -187,4 +187,35 @@ export class CentresController {
       });
     }
   }
+
+  /**
+   * POST /centres/me/filieres
+   * Attacher les filières au centre de l'utilisateur
+   */
+  async attachFilieresToMyCentre(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = (req.user as any).id;
+      const { filiereIds } = req.body as { filiereIds: string[] };
+
+      if (!Array.isArray(filiereIds)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'filiereIds must be an array',
+        });
+      }
+
+      const result = await this.service.attachFilieresToMyCentre(userId, filiereIds);
+
+      return reply.status(200).send({
+        success: true,
+        data: result,
+      });
+    } catch (err) {
+      req.log.error(err);
+      return reply.status(400).send({
+        success: false,
+        error: (err as Error).message,
+      });
+    }
+  }
 }

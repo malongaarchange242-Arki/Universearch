@@ -69,6 +69,9 @@ export const centresRoutes = async (
 
       // Upload logo for caller's centre
       fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
+
+      // Attach filieres to caller's centre
+      fastify.post('/me/filieres', (req, reply) => controller.attachFilieresToMyCentre(req, reply));
     }
   );
 };
