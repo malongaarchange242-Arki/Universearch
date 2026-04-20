@@ -416,21 +416,22 @@ export const loginUser = async (
     };
   }
 
-  if (!telephone) {
-    throw new Error('telephone is required when password is not provided');
-  }
-
-  // 1️⃣ Vérifier que l'utilisateur existe avec email + téléphone
+  // 1️⃣ Vérifier que l'utilisateur existe avec email (téléphone optionnel)
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
-    .select('id, email, profile_type')
+    .select('id, email, profile_type, telephone')
     .eq('email', email)
-    .eq('telephone', telephone)
     .single(); // Retourne une seule ligne
 
   if (profileError || !profiles) {
     console.error('Login failed:', profileError?.message);
-    throw new Error('User not found with provided email and phone');
+    throw new Error('User not found with provided email');
+  }
+
+  // 2️⃣ Si téléphone est fourni, vérifier qu'il correspond
+  if (telephone && profiles.telephone !== telephone) {
+    console.error(`Phone mismatch: expected ${telephone}, got ${profiles.telephone}`);
+    throw new Error('Email found but phone number does not match');
   }
 
   const userId = profiles.id;
