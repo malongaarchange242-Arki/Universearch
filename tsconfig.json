@@ -2,11 +2,12 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "6.0",   // ✅ AJOUT ICI
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
     "outDir": "dist",
     "rootDir": "./src",
     "typeRoots": ["./src/types", "./node_modules/@types"]
