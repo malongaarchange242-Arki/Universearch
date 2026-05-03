@@ -33,6 +33,8 @@ const centresRoutes = async (app, _options) => {
         fastify.put('/me', { schema: centres_schema_1.updateMyCentreSchema }, (req, reply) => controller.updateMyCentre(req, reply));
         // Upload logo for caller's centre
         fastify.post('/me/logo', (req, reply) => controller.uploadMyLogo(req, reply));
+        // Attach filieres to caller's centre
+        fastify.post('/me/filieres', (req, reply) => controller.attachFilieresToMyCentre(req, reply));
     });
 };
 exports.centresRoutes = centresRoutes;

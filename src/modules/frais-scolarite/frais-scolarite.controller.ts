@@ -9,9 +9,15 @@ import {
   ListFraisQuery,
 } from './frais-scolarite.schema';
 import { FraisScolariteService } from './frais-scolarite.service';
+import { UniversitesService } from '../universites/universites.service';
+import { supabaseAdmin } from '../../plugins/supabase';
 
 export class FraisScolariteController {
-  constructor(private service: FraisScolariteService) {}
+  private universitesService: UniversitesService;
+
+  constructor(private service: FraisScolariteService) {
+    this.universitesService = new UniversitesService(supabaseAdmin);
+  }
 
   /**
    * GET /universites/me/frais-scolarite
@@ -22,22 +28,28 @@ export class FraisScolariteController {
       const userId = (req.user as any)?.id;
       const query = (req.query as any) || {};
 
+      if (!userId) {
+        return reply.status(401).send({
+          error: 'User not authenticated',
+        });
+      }
+
+      // Get the university for this user
+      const universite = await this.universitesService.getMyUniversite(userId);
+
+      if (!universite) {
+        return reply.status(404).send({
+          error: 'University not found for your account',
+        });
+      }
+
       // Parse query parameters
       const filters: { level?: string; pole?: string } = {};
       if (query.level) filters.level = String(query.level);
       if (query.pole) filters.pole = String(query.pole);
 
-      // Get the university ID from the user's token
-      const universite_id = (req.user as any)?.universite_id || userId;
-
-      if (!universite_id) {
-        return reply.status(400).send({
-          error: 'Unable to determine university ID',
-        });
-      }
-
       const frais = await this.service.getFraisByUniversiteId(
-        universite_id,
+        universite.id,
         filters
       );
 

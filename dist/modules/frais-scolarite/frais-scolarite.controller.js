@@ -5,10 +5,14 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FraisScolariteController = void 0;
+const universites_service_1 = require("../universites/universites.service");
+const supabase_1 = require("../../plugins/supabase");
 class FraisScolariteController {
     service;
+    universitesService;
     constructor(service) {
         this.service = service;
+        this.universitesService = new universites_service_1.UniversitesService(supabase_1.supabaseAdmin);
     }
     /**
      * GET /universites/me/frais-scolarite
@@ -18,20 +22,25 @@ class FraisScolariteController {
         try {
             const userId = req.user?.id;
             const query = req.query || {};
+            if (!userId) {
+                return reply.status(401).send({
+                    error: 'User not authenticated',
+                });
+            }
+            // Get the university for this user
+            const universite = await this.universitesService.getMyUniversite(userId);
+            if (!universite) {
+                return reply.status(404).send({
+                    error: 'University not found for your account',
+                });
+            }
             // Parse query parameters
             const filters = {};
             if (query.level)
                 filters.level = String(query.level);
             if (query.pole)
                 filters.pole = String(query.pole);
-            // Get the university ID from the user's token
-            const universite_id = req.user?.universite_id || userId;
-            if (!universite_id) {
-                return reply.status(400).send({
-                    error: 'Unable to determine university ID',
-                });
-            }
-            const frais = await this.service.getFraisByUniversiteId(universite_id, filters);
+            const frais = await this.service.getFraisByUniversiteId(universite.id, filters);
             reply.status(200).send({
                 message: 'Frais de scolarité retrieved successfully',
                 data: frais,

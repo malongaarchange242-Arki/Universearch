@@ -166,5 +166,33 @@ class CentresController {
             });
         }
     }
+    /**
+     * POST /centres/me/filieres
+     * Attacher les filières au centre de l'utilisateur
+     */
+    async attachFilieresToMyCentre(req, reply) {
+        try {
+            const userId = req.user.id;
+            const { filiereIds } = req.body;
+            if (!Array.isArray(filiereIds)) {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'filiereIds must be an array',
+                });
+            }
+            const result = await this.service.attachFilieresToMyCentre(userId, filiereIds);
+            return reply.status(200).send({
+                success: true,
+                data: result,
+            });
+        }
+        catch (err) {
+            req.log.error(err);
+            return reply.status(400).send({
+                success: false,
+                error: err.message,
+            });
+        }
+    }
 }
 exports.CentresController = CentresController;
