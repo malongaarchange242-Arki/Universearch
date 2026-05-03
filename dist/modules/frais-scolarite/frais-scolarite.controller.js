@@ -61,11 +61,16 @@ class FraisScolariteController {
         try {
             const userId = req.user?.id;
             const body = req.body || {};
-            // Get the university ID from the user's token
-            const universite_id = req.user?.universite_id || userId;
-            if (!universite_id) {
-                return reply.status(400).send({
-                    error: 'Unable to determine university ID',
+            if (!userId) {
+                return reply.status(401).send({
+                    error: 'User not authenticated',
+                });
+            }
+            // Get the university for this user
+            const universite = await this.universitesService.getMyUniversite(userId);
+            if (!universite) {
+                return reply.status(404).send({
+                    error: 'University not found for your account',
                 });
             }
             if (!body.records || !Array.isArray(body.records) || body.records.length === 0) {
@@ -74,7 +79,7 @@ class FraisScolariteController {
                 });
             }
             // Upsert frais (insert if new, update if exists based on level+pole)
-            const frais = await this.service.upsertFrais(universite_id, body.records);
+            const frais = await this.service.upsertFrais(universite.id, body.records);
             reply.status(200).send({
                 message: 'Frais de scolarité saved successfully',
                 data: frais,

@@ -77,12 +77,18 @@ export class FraisScolariteController {
       const userId = (req.user as any)?.id;
       const body = (req.body as CreateFraisRequest) || {};
 
-      // Get the university ID from the user's token
-      const universite_id = (req.user as any)?.universite_id || userId;
+      if (!userId) {
+        return reply.status(401).send({
+          error: 'User not authenticated',
+        });
+      }
 
-      if (!universite_id) {
-        return reply.status(400).send({
-          error: 'Unable to determine university ID',
+      // Get the university for this user
+      const universite = await this.universitesService.getMyUniversite(userId);
+
+      if (!universite) {
+        return reply.status(404).send({
+          error: 'University not found for your account',
         });
       }
 
@@ -94,7 +100,7 @@ export class FraisScolariteController {
 
       // Upsert frais (insert if new, update if exists based on level+pole)
       const frais = await this.service.upsertFrais(
-        universite_id,
+        universite.id,
         body.records
       );
 
