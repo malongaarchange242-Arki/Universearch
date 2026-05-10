@@ -6,6 +6,48 @@ import jwt from 'jsonwebtoken';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
+// Cache en mémoire pour éviter les doubles soumissions (simple, pas scalable)
+// En production, utiliser Redis avec TTL
+const registrationLocks = new Map<string, number>();
+const LOCK_TIMEOUT = 30000; // 30 secondes
+
+/**
+ * Acquérir un verrou pour éviter les doubles soumissions
+ */
+const acquireRegistrationLock = (email: string): boolean => {
+  const now = Date.now();
+  const existingLock = registrationLocks.get(email);
+
+  if (existingLock && now - existingLock < LOCK_TIMEOUT) {
+    return false; // Verrou actif
+  }
+
+  registrationLocks.set(email, now);
+  return true;
+};
+
+/**
+ * Libérer le verrou
+ */
+const releaseRegistrationLock = (email: string): void => {
+  registrationLocks.delete(email);
+};
+
+/**
+ * Nettoyer les anciens verrous (garbage collection)
+ */
+const cleanupOldLocks = (): void => {
+  const now = Date.now();
+  for (const [email, timestamp] of registrationLocks.entries()) {
+    if (now - timestamp > LOCK_TIMEOUT) {
+      registrationLocks.delete(email);
+    }
+  }
+};
+
+// Nettoyer les anciens verrous toutes les 5 minutes
+setInterval(cleanupOldLocks, 5 * 60 * 1000);
+
 export interface RegisterPayload {
   email: string;
   password?: string; // Made optional
@@ -211,167 +253,235 @@ export const refreshAccessToken = async (
 };
 
 /**
- * Crée un utilisateur Supabase + profile + table spécifique
+ * Crée un utilisateur Supabase (le trigger PostgreSQL gère automatiquement le profile)
+ * Idempotent et sécurisé contre les doubles créations
  */
 export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
-  // Vérifier si l'email existe déjà
+  const { email, nom, prenom, telephone, profileType, userType, dateNaissance, genre } = payload;
+
+  // Validation des données d'entrée
+  if (!email || !nom || !telephone || !profileType) {
+    throw new Error('Missing required fields: email, nom, telephone, profileType');
+  }
+
+  // Validation spécifique pour utilisateur
+  if (profileType === 'utilisateur' && !userType) {
+    throw new Error('userType is required for utilisateur profile type');
+  }
+
+  // Protection contre les doubles soumissions
+  if (!acquireRegistrationLock(email)) {
+    throw new Error('REGISTRATION_IN_PROGRESS');
+  }
+
+  try {
+
+  // Vérifier si l'utilisateur existe déjà (idempotent)
   const { data: existingProfile } = await supabase
     .from('profiles')
-    .select('id')
-    .eq('email', payload.email)
+    .select('id, profile_type')
+    .eq('email', email)
     .single();
 
   if (existingProfile) {
-    throw new Error('Email already registered');
+    // Utilisateur existe déjà - retourner les infos existantes
+    const userId = existingProfile.id;
+
+    // Générer les tokens pour l'utilisateur existant
+    const token = generateToken({
+      id: userId,
+      email: email,
+      role: existingProfile.profile_type,
+    });
+    const refreshToken = await issueRefreshToken(supabase, userId);
+
+    return {
+      userId,
+      email,
+      token,
+      refreshToken,
+      userType: profileType === 'utilisateur' ? userType : undefined,
+      gender: genre,
+    };
   }
 
-  const password =
-    payload.password && payload.password.trim().length >= 8
-      ? payload.password
-      : crypto.randomBytes(16).toString('hex');
+  // Générer un mot de passe sécurisé si non fourni
+  const password = payload.password && payload.password.trim().length >= 8
+    ? payload.password
+    : crypto.randomBytes(16).toString('hex');
 
+  // Métadonnées utilisateur pour Supabase Auth
+  const userMetadata: Record<string, any> = {
+    profile_type: profileType,
+    nom,
+    prenom: prenom || null,
+    telephone,
+    date_naissance: dateNaissance || null,
+    genre: genre || null,
+  };
+
+  // Ajouter userType pour les utilisateurs
+  if (profileType === 'utilisateur' && userType) {
+    userMetadata.user_type = userType;
+  }
+
+  // Créer l'utilisateur Supabase Auth (le trigger crée automatiquement le profile)
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: payload.email,
+    email,
     password,
     email_confirm: true,
-    user_metadata: {
-      profile_type: payload.profileType,
-    },
+    user_metadata: userMetadata,
   });
 
-  if (authError || !authData.user) {
-    throw new Error(`Auth user creation failed: ${authError?.message || 'unknown error'}`);
+  if (authError) {
+    // Gestion spécifique des erreurs Supabase
+    if (authError.message?.includes('already registered')) {
+      throw new Error('EMAIL_ALREADY_EXISTS');
+    }
+    if (authError.message?.includes('Invalid email')) {
+      throw new Error('INVALID_EMAIL_FORMAT');
+    }
+    if (authError.message?.includes('Password should be at least')) {
+      throw new Error('PASSWORD_TOO_WEAK');
+    }
+
+    throw new Error(`SUPABASE_AUTH_ERROR: ${authError.message}`);
+  }
+
+  if (!authData.user) {
+    throw new Error('SUPABASE_USER_CREATION_FAILED');
   }
 
   const userId = authData.user.id;
 
-  // Création du profile
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({
-      id: userId,
-      nom: payload.nom,
-      prenom: payload.prenom ?? null,
-      telephone: payload.telephone,
-      email: payload.email,
-      profile_type: payload.profileType,
-      date_naissance: payload.dateNaissance ?? null,
-      genre: payload.genre ?? null,
-    });
+  // Attendre que le trigger PostgreSQL crée le profile (retry avec backoff)
+  let profileCreated = false;
+  let retryCount = 0;
+  const maxRetries = 5;
 
-  if (profileError) {
+  while (!profileCreated && retryCount < maxRetries) {
+    try {
+      const { data: profileCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (profileCheck) {
+        profileCreated = true;
+        break;
+      }
+    } catch (error) {
+      // Profile pas encore créé, attendre
+    }
+
+    // Backoff exponentiel: 100ms, 200ms, 400ms, 800ms, 1600ms
+    await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+    retryCount++;
+  }
+
+  if (!profileCreated) {
+    // Nettoyer l'utilisateur auth si le profile n'a pas été créé
     await supabase.auth.admin.deleteUser(userId);
-    throw new Error(`Registration failed: ${profileError.message}`);
+    throw new Error('PROFILE_CREATION_TIMEOUT');
   }
 
-  // Table spécifique selon profileType
-  switch (payload.profileType) {
-    case 'utilisateur': {
-      if (!payload.userType) throw new Error('userType is required for utilisateur');
+  // Créer l'enregistrement dans la table spécifique selon profileType
+  try {
+    switch (profileType) {
+      case 'utilisateur': {
+        const { error } = await supabase.from('utilisateurs').insert({
+          id: userId,
+          user_type: userType!,
+        });
 
-      const { error } = await supabase.from('utilisateurs').insert({
-        id: userId,
-        user_type: payload.userType,
-      });
-
-      if (error) {
-        // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Registration failed: ${error.message}`);
+        if (error) {
+          throw new Error(`UTILISATEUR_TABLE_ERROR: ${error.message}`);
+        }
+        break;
       }
-      break;
-    }
 
-    case 'admin': {
-      const { error } = await supabase.from('admins').insert({ id: userId });
-
-      if (error) {
-        // Rollback
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Registration failed: ${error.message}`);
+      case 'admin': {
+        const { error } = await supabase.from('admins').insert({ id: userId });
+        if (error) {
+          throw new Error(`ADMIN_TABLE_ERROR: ${error.message}`);
+        }
+        break;
       }
-      break;
-    }
 
-    case 'superviseur': {
-      const { error } = await supabase.from('superviseurs').insert({ id: userId });
-
-      if (error) {
-        // Rollback
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Registration failed: ${error.message}`);
+      case 'superviseur': {
+        const { error } = await supabase.from('superviseurs').insert({ id: userId });
+        if (error) {
+          throw new Error(`SUPERVISEUR_TABLE_ERROR: ${error.message}`);
+        }
+        break;
       }
-      break;
-    }
 
-    case 'universite': {
-      const { error } = await supabase.from('universites').insert({
-        id: userId,
-        profile_id: userId,
-        nom: payload.nom,
-        email: payload.email,
-        statut: 'PENDING',
-        date_creation: new Date().toISOString(),
-      });
+      case 'universite': {
+        const { error } = await supabase.from('universites').insert({
+          id: userId,
+          profile_id: userId,
+          nom,
+          email,
+          statut: 'PENDING',
+          date_creation: new Date().toISOString(),
+        });
 
-      if (error) {
-        // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Registration failed: ${error.message}`);
+        if (error) {
+          throw new Error(`UNIVERSITE_TABLE_ERROR: ${error.message}`);
+        }
+        break;
       }
-      break;
-    }
 
-    case 'centre_formation': {
-      const { error } = await supabase.from('centres_formation').insert({
-        id: userId,
-        profile_id: userId,
-        nom: payload.nom,
-        email: payload.email,
-        statut: 'PENDING',
-        date_creation: new Date().toISOString(),
-      });
+      case 'centre_formation': {
+        const { error } = await supabase.from('centres_formation').insert({
+          id: userId,
+          profile_id: userId,
+          nom,
+          email,
+          statut: 'PENDING',
+          date_creation: new Date().toISOString(),
+        });
 
-      if (error) {
-        // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
-        await supabase.from('profiles').delete().eq('id', userId);
-        await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Registration failed: ${error.message}`);
+        if (error) {
+          throw new Error(`CENTRE_TABLE_ERROR: ${error.message}`);
+        }
+        break;
       }
-      break;
-    }
 
-    default:
-      break;
+      default:
+        // Pour les autres types, pas de table spécifique
+        break;
+    }
+  } catch (error) {
+    // En cas d'erreur dans la table spécifique, nettoyer tout
+    await supabase.auth.admin.deleteUser(userId);
+    throw error;
   }
 
+  // Générer les tokens JWT
   const token = generateToken({
     id: userId,
-    email: payload.email,
-    role: payload.profileType,
+    email,
+    role: profileType,
   });
   const refreshToken = await issueRefreshToken(supabase, userId);
 
-  const result: AuthResult = { userId, email: payload.email };
-  if (token) {
-    result.token = token;
+  return {
+    userId,
+    email,
+    token,
+    refreshToken,
+    userType: profileType === 'utilisateur' ? userType : undefined,
+    gender: genre,
+  };
+  } finally {
+    // Toujours libérer le verrou
+    releaseRegistrationLock(email);
   }
-  result.refreshToken = refreshToken;
-  if (payload.userType) {
-    result.userType = payload.userType;
-  }
-  if (payload.genre) {
-    result.gender = payload.genre;
-  }
-
-  return result;
 };
 
 

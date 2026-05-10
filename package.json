@@ -6,7 +6,8 @@
     "scripts": {
         "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
         "build": "tsc",
-        "start": "node dist/server.js"
+        "start": "node dist/server.js",
+        "test:auth": "node test-auth-refactor.js"
     },
     "dependencies": {
         "@fastify/cors": "^11.2.0",

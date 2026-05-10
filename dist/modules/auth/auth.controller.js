@@ -51,21 +51,91 @@ const getLoginProfileSummary = async (userId) => {
 };
 /**
  * Handler de création de compte utilisateur.
+ * Idempotent et protégé contre les doubles soumissions
  */
 const registerHandler = async (request, reply) => {
+    const { email, profileType } = request.body;
+    request.log.info({
+        action: 'user_registration_attempt',
+        email,
+        profileType,
+        userAgent: request.headers['user-agent'],
+        ip: request.ip,
+    });
     try {
-        // Passe supabaseAdmin au service
         const result = await (0, auth_service_1.registerUser)(supabase_1.supabaseAdmin, request.body);
+        request.log.info({
+            action: 'user_registration_success',
+            userId: result.userId,
+            email,
+            profileType,
+        });
         reply.status(201).send({
             success: true,
-            data: result,
+            message: 'Compte créé avec succès',
+            data: {
+                userId: result.userId,
+                email: result.email,
+                token: result.token,
+                refreshToken: result.refreshToken,
+                profileType,
+                userType: result.userType,
+            },
         });
     }
     catch (error) {
-        request.log.error(error);
-        reply.status(400).send({
+        const err = error;
+        const errorMessage = err.message;
+        request.log.error({
+            action: 'user_registration_failed',
+            email,
+            profileType,
+            error: errorMessage,
+            stack: err.stack,
+        });
+        // Gestion des erreurs avec codes HTTP appropriés
+        let statusCode = 500;
+        let userMessage = 'Erreur interne du serveur';
+        if (errorMessage === 'EMAIL_ALREADY_EXISTS') {
+            statusCode = 409;
+            userMessage = 'Cet email est déjà enregistré';
+        }
+        else if (errorMessage === 'INVALID_EMAIL_FORMAT') {
+            statusCode = 400;
+            userMessage = 'Format d\'email invalide';
+        }
+        else if (errorMessage === 'PASSWORD_TOO_WEAK') {
+            statusCode = 400;
+            userMessage = 'Mot de passe trop faible (minimum 8 caractères)';
+        }
+        else if (errorMessage === 'REGISTRATION_IN_PROGRESS') {
+            statusCode = 429;
+            userMessage = 'Inscription en cours, veuillez patienter';
+        }
+        else if (errorMessage === 'Missing required fields: email, nom, telephone, profileType') {
+            statusCode = 400;
+            userMessage = 'Champs requis manquants: email, nom, téléphone, type de profil';
+        }
+        else if (errorMessage === 'userType is required for utilisateur profile type') {
+            statusCode = 400;
+            userMessage = 'Le type d\'utilisateur est requis pour les comptes utilisateur';
+        }
+        else if (errorMessage.includes('SUPABASE_AUTH_ERROR')) {
+            statusCode = 500;
+            userMessage = 'Erreur d\'authentification temporaire, veuillez réessayer';
+        }
+        else if (errorMessage === 'PROFILE_CREATION_TIMEOUT') {
+            statusCode = 500;
+            userMessage = 'Erreur de création du profil, veuillez réessayer';
+        }
+        else if (errorMessage.includes('TABLE_ERROR')) {
+            statusCode = 500;
+            userMessage = 'Erreur de configuration du compte, veuillez contacter le support';
+        }
+        reply.status(statusCode).send({
             success: false,
-            error: error.message,
+            error: userMessage,
+            code: errorMessage, // Pour le debugging côté client
         });
     }
 };
