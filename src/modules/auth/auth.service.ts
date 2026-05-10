@@ -217,6 +217,17 @@ export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
+  // Vérifier si l'email existe déjà
+  const { data: existingProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', payload.email)
+    .single();
+
+  if (existingProfile) {
+    throw new Error('Email already registered');
+  }
+
   const password =
     payload.password && payload.password.trim().length >= 8
       ? payload.password
@@ -253,7 +264,7 @@ export const registerUser = async (
 
   if (profileError) {
     await supabase.auth.admin.deleteUser(userId);
-    throw new Error(`Profile creation failed: ${profileError.message}`);
+    throw new Error(`Registration failed: ${profileError.message}`);
   }
 
   // Table spécifique selon profileType
@@ -270,7 +281,7 @@ export const registerUser = async (
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
         await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Utilisateur creation failed: ${error.message}`);
+        throw new Error(`Registration failed: ${error.message}`);
       }
       break;
     }
@@ -282,7 +293,7 @@ export const registerUser = async (
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
         await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Admin creation failed: ${error.message}`);
+        throw new Error(`Registration failed: ${error.message}`);
       }
       break;
     }
@@ -294,7 +305,7 @@ export const registerUser = async (
         // Rollback
         await supabase.from('profiles').delete().eq('id', userId);
         await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Superviseur creation failed: ${error.message}`);
+        throw new Error(`Registration failed: ${error.message}`);
       }
       break;
     }
@@ -313,7 +324,7 @@ export const registerUser = async (
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
         await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Universite creation failed: ${error.message}`);
+        throw new Error(`Registration failed: ${error.message}`);
       }
       break;
     }
@@ -332,7 +343,7 @@ export const registerUser = async (
         // Rollback: supprimer le profile et l'utilisateur en cas d'erreur
         await supabase.from('profiles').delete().eq('id', userId);
         await supabase.auth.admin.deleteUser(userId);
-        throw new Error(`Centre creation failed: ${error.message}`);
+        throw new Error(`Registration failed: ${error.message}`);
       }
       break;
     }
