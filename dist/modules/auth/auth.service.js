@@ -118,6 +118,53 @@ const issueRefreshToken = async (supabase, userId) => {
     }
     return refreshToken;
 };
+const ensureProfileRow = async (supabase, userId, profileData) => {
+    const { data: existingProfile, error: existingProfileError } = await supabase
+        .from('profiles')
+        .select('id, nom, prenom, telephone, date_naissance, genre, email, profile_type')
+        .eq('id', userId)
+        .maybeSingle();
+    if (existingProfileError) {
+        throw new Error(`PROFILE_QUERY_ERROR: ${existingProfileError.message}`);
+    }
+    const profilePayload = {
+        email: profileData.email,
+        profile_type: profileData.profileType,
+        nom: profileData.nom,
+        prenom: profileData.prenom || null,
+        telephone: profileData.telephone,
+        date_naissance: profileData.dateNaissance || null,
+        genre: profileData.genre || null,
+    };
+    if (!existingProfile) {
+        const { error } = await supabase.from('profiles').insert({
+            id: userId,
+            ...profilePayload,
+        });
+        if (error) {
+            throw new Error(`PROFILE_INSERT_ERROR: ${error.message}`);
+        }
+        return;
+    }
+    const updatePayload = {};
+    for (const key of Object.keys(profilePayload)) {
+        if (existingProfile[key] == null && profilePayload[key] != null) {
+            updatePayload[key] = profilePayload[key];
+        }
+    }
+    // Keep profile_type and email in sync if they are missing or stale.
+    updatePayload.email = profilePayload.email;
+    updatePayload.profile_type = profilePayload.profile_type;
+    if (Object.keys(updatePayload).length > 0) {
+        const { error } = await supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', userId);
+        if (error) {
+            throw new Error(`PROFILE_UPDATE_ERROR: ${error.message}`);
+        }
+    }
+};
 const revokeRefreshToken = async (supabase, refreshToken) => {
     const tokenHash = hashToken(refreshToken);
     const { error } = await supabase
@@ -293,11 +340,15 @@ const registerUser = async (supabase, payload) => {
             await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
             retryCount++;
         }
-        if (!profileCreated) {
-            // Nettoyer l'utilisateur auth si le profile n'a pas été créé
-            await supabase.auth.admin.deleteUser(userId);
-            throw new Error('PROFILE_CREATION_TIMEOUT');
-        }
+        await ensureProfileRow(supabase, userId, {
+            email,
+            nom,
+            prenom,
+            telephone,
+            profileType,
+            dateNaissance: dateNaissance || null,
+            genre: genre || null,
+        });
         // Créer l'enregistrement dans la table spécifique selon profileType
         try {
             switch (profileType) {

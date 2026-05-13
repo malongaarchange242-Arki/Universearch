@@ -50,20 +50,45 @@ const getLoginProfileSummary = async (userId) => {
     };
 };
 /**
+ * Normalise le userType vers les valeurs autorisées.
+ * Les valeurs non reconnues sont converties en 'parent'.
+ */
+const normalizeUserType = (userType) => {
+    if (!userType)
+        return 'parent';
+    const normalized = userType.toLowerCase().trim();
+    if (normalized === 'bachelier')
+        return 'bachelier';
+    if (normalized === 'etudiant')
+        return 'etudiant';
+    if (normalized === 'parent')
+        return 'parent';
+    // Toute autre valeur est normalisée vers 'parent'
+    return 'parent';
+};
+/**
  * Handler de création de compte utilisateur.
  * Idempotent et protégé contre les doubles soumissions
  */
 const registerHandler = async (request, reply) => {
-    const { email, profileType } = request.body;
+    const { email, profileType, userType } = request.body;
+    // Normaliser le userType si fourni
+    const normalizedUserType = userType ? normalizeUserType(userType) : undefined;
+    // Créer une copie du body avec le userType normalisé
+    const normalizedBody = {
+        ...request.body,
+        userType: normalizedUserType,
+    };
     request.log.info({
         action: 'user_registration_attempt',
         email,
         profileType,
+        userType: normalizedUserType,
         userAgent: request.headers['user-agent'],
         ip: request.ip,
     });
     try {
-        const result = await (0, auth_service_1.registerUser)(supabase_1.supabaseAdmin, request.body);
+        const result = await (0, auth_service_1.registerUser)(supabase_1.supabaseAdmin, normalizedBody);
         request.log.info({
             action: 'user_registration_success',
             userId: result.userId,

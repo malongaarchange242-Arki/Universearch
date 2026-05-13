@@ -58,8 +58,7 @@ exports.registerSchema = {
             },
             userType: {
                 type: 'string',
-                enum: ['bachelier', 'etudiant', 'parent'],
-                description: 'Obligatoire si profileType = utilisateur'
+                description: 'Obligatoire si profileType = utilisateur. Valeurs autorisées: bachelier, etudiant, parent. Autres valeurs seront normalisées vers parent.'
             },
             dateNaissance: {
                 type: 'string',
