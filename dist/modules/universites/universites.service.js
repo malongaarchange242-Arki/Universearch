@@ -5,6 +5,36 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UniversitesService = void 0;
 const crypto_1 = require("crypto");
+function cleanFormationText(value) {
+    if (value === undefined || value === null)
+        return null;
+    const text = String(value).trim();
+    return text || null;
+}
+function normalizeFormationDetails(details) {
+    if (!details)
+        return {};
+    let alternance = null;
+    if (typeof details.alternance === 'boolean') {
+        alternance = details.alternance;
+    }
+    else if (typeof details.alternance === 'string') {
+        const value = details.alternance.trim().toLowerCase();
+        alternance = ['oui', 'true', '1', 'yes'].includes(value);
+    }
+    return {
+        nom_affiche: cleanFormationText(details.nom_affiche),
+        niveau: cleanFormationText(details.niveau),
+        niveau_detail: cleanFormationText(details.niveau_detail),
+        duree: cleanFormationText(details.duree),
+        lieu: cleanFormationText(details.lieu),
+        langue: cleanFormationText(details.langue),
+        frais_inscription: cleanFormationText(details.frais_inscription),
+        description: cleanFormationText(details.description),
+        prerequis: cleanFormationText(details.prerequis),
+        alternance,
+    };
+}
 class UniversitesService {
     supabase;
     constructor(supabase) {
@@ -100,7 +130,7 @@ class UniversitesService {
      */
     async updateMyUniversite(userId, payload) {
         // Interdire la modification du statut via cette route
-        const { statut, profile_id, id, date_creation, selectedFilieres, ...updateData } = payload;
+        const { statut, profile_id, id, date_creation, selectedFilieres, formationDetails, ...updateData } = payload;
         // If frontend sent selectedFilieres (array), persist as a comma-separated domaine (for backward compatibility)
         if (selectedFilieres && Array.isArray(selectedFilieres)) {
             updateData.domaine = selectedFilieres.join(', ');
@@ -156,7 +186,7 @@ class UniversitesService {
             try {
                 console.log(`🔗 [DEBUG] Attaching ${selectedFilieres.length} filières to université ${universite.id}:`, selectedFilieres);
                 // Pass filieres directly - attachFilieresToUniversite will validate them against filieres table
-                const result = await this.attachFilieresToUniversite(universite.id, selectedFilieres);
+                const result = await this.attachFilieresToUniversite(universite.id, selectedFilieres, Array.isArray(formationDetails) ? formationDetails : []);
                 console.log(`✅ [DEBUG] Filière attachment result:`, result);
             }
             catch (err) {
@@ -174,6 +204,16 @@ class UniversitesService {
         const { data: filiereData, error: filError } = await this.supabase
             .from('universite_filieres')
             .select(`
+        niveau,
+        nom_affiche,
+        niveau_detail,
+        duree,
+        lieu,
+        langue,
+        frais_inscription,
+        description,
+        prerequis,
+        alternance,
         filieres!inner(
           id,
           nom,
@@ -196,7 +236,17 @@ class UniversitesService {
                 }
                 domainesMap.get(domaineNom).filieres.push({
                     id: row.filieres.id,
-                    nom: row.filieres.nom
+                    nom: row.filieres.nom,
+                    nom_affiche: row.nom_affiche ?? null,
+                    niveau: row.niveau ?? null,
+                    niveau_detail: row.niveau_detail ?? null,
+                    duree: row.duree ?? null,
+                    lieu: row.lieu ?? null,
+                    langue: row.langue ?? null,
+                    frais_inscription: row.frais_inscription ?? null,
+                    description: row.description ?? null,
+                    prerequis: row.prerequis ?? null,
+                    alternance: row.alternance ?? null
                 });
             }
         });
@@ -288,12 +338,18 @@ class UniversitesService {
      * Accepte les UUIDs des filières et les insère dans universite_filieres.
      * Évite les doublons en vérifiant les associations existantes.
      */
-    async attachFilieresToUniversite(universiteId, filiereIds) {
+    async attachFilieresToUniversite(universiteId, filiereIds, formationDetails = []) {
         if (!Array.isArray(filiereIds) || filiereIds.length === 0) {
-            return { inserted: 0, skipped: [] };
+            return { inserted: 0, updated: 0, skipped: [] };
         }
         // Normalize and deduplicate incoming IDs
         const ids = Array.from(new Set(filiereIds.map(String)));
+        const detailsByFiliereId = new Map();
+        formationDetails.forEach((item) => {
+            const filiereId = item?.filiere_id || item?.filiereId;
+            if (filiereId)
+                detailsByFiliereId.set(String(filiereId), item);
+        });
         console.log(`🔗 [DEBUG] attachFilieresToUniversite called with ${ids.length} filières`);
         // 🔥 ÉTAPE 1: Valider que les filières existent en base
         console.log(`🔍 [DEBUG] Validating filieres against database...`);
@@ -309,7 +365,7 @@ class UniversitesService {
         console.log(`✅ [DEBUG] Found ${validIds.length} valid filieres out of ${ids.length}`);
         if (validIds.length === 0) {
             console.warn(`⚠️ [DEBUG] No valid filieres found for:`, ids);
-            return { inserted: 0, skipped: ids };
+            return { inserted: 0, updated: 0, skipped: ids };
         }
         // 🔥 ÉTAPE 2: Vérifier les associations existantes
         console.log(`🔄 [DEBUG] Checking existing associations for university ${universiteId}...`);
@@ -323,19 +379,36 @@ class UniversitesService {
             throw new Error(`Failed to check existing associations: ${existingErr.message}`);
         }
         const existingIds = new Set((existing || []).map((r) => r.filiere_id));
+        const toUpdate = validIds.filter(id => existingIds.has(id) && detailsByFiliereId.has(id));
+        let updated = 0;
+        for (const filiereId of toUpdate) {
+            const { error: updateErr } = await this.supabase
+                .from('universite_filieres')
+                .update({
+                ...normalizeFormationDetails(detailsByFiliereId.get(filiereId)),
+                updated_at: new Date().toISOString()
+            })
+                .eq('universite_id', universiteId)
+                .eq('filiere_id', filiereId);
+            if (updateErr) {
+                throw new Error(`Failed to update universite_filieres: ${updateErr.message}`);
+            }
+            updated += 1;
+        }
         console.log(`📊 [DEBUG] Found ${existingIds.size} existing associations`);
         // 🔥 ÉTAPE 3: Préparer les nouvelles associations
         const toInsert = validIds.filter(id => !existingIds.has(id));
         console.log(`➕ [DEBUG] Will insert ${toInsert.length} new associations`);
         if (toInsert.length === 0) {
             console.log(`ℹ️ [DEBUG] All filières were already associated`);
-            return { inserted: 0, skipped: validIds };
+            return { inserted: 0, updated, skipped: validIds };
         }
         // 🔥 ÉTAPE 4: Insérer les lignes
         const rows = toInsert.map(filiereId => ({
             id: (0, crypto_1.randomUUID)(),
             universite_id: universiteId,
             filiere_id: filiereId,
+            ...normalizeFormationDetails(detailsByFiliereId.get(filiereId)),
             created_at: new Date().toISOString()
         }));
         console.log(`💾 [DEBUG] Inserting ${rows.length} rows into universite_filieres`);
@@ -347,12 +420,12 @@ class UniversitesService {
             throw new Error(`Failed to insert universite_filieres: ${insertErr.message}`);
         }
         console.log(`✅ [DEBUG] Successfully inserted ${rows.length} associations`);
-        return { inserted: rows.length, skipped: Array.from(existingIds) };
+        return { inserted: rows.length, updated, skipped: Array.from(existingIds) };
     }
     /**
      * Attacher plusieurs filières à mon université (résout l'universite via profile_id)
      */
-    async attachFilieresToMyUniversite(userId, filiereIds) {
+    async attachFilieresToMyUniversite(userId, filiereIds, formationDetails = []) {
         console.log(`🔍 [DEBUG] attachFilieresToMyUniversite: resolving universite for profile_id=${userId}`);
         const { data: uni, error: uniErr } = await this.supabase
             .from('universites')
@@ -370,7 +443,7 @@ class UniversitesService {
         }
         const uniId = uni.id;
         console.log(`✅ [DEBUG] Resolved profile_id=${userId} → universite_id=${uniId}`);
-        return this.attachFilieresToUniversite(uniId, filiereIds);
+        return this.attachFilieresToUniversite(uniId, filiereIds, formationDetails);
     }
 }
 exports.UniversitesService = UniversitesService;

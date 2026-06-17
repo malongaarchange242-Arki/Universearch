@@ -97,6 +97,10 @@ app.post('/health', async () => ({
     service: 'identity-service',
     timestamp: new Date().toISOString(),
 }));
+// Explicitly handle HEAD requests so proxies and load-balancers receive 200 without body
+app.head('/health', async (_request, reply) => {
+    reply.status(200).send();
+});
 // Plugins: supabase must be registered before other routes (depends on it)
 // Lightweight CORS handling for Fastify v4 (avoid upgrading Fastify/plugin mismatch)
 app.addHook('onRequest', (request, reply, done) => {

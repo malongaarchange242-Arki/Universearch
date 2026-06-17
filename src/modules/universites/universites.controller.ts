@@ -5,6 +5,18 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { UniversitesService } from './universites.service';
 
+function parseFormationDetails(body: any) {
+  const details =
+    body?.formationDetails ??
+    body?.formation_details ??
+    body?.details ??
+    body?.formation;
+
+  if (Array.isArray(details)) return details;
+  if (details && typeof details === 'object') return [details];
+  return [];
+}
+
 export class UniversitesController {
   constructor(private service: UniversitesService) {}
 
@@ -66,12 +78,13 @@ export class UniversitesController {
       const userId = (req.user as any).id;
       const body = req.body as any;
       const filiereIds = Array.isArray(body && body.filiereIds) ? body.filiereIds : [];
+      const formationDetails = parseFormationDetails(body);
 
       if (!filiereIds.length) {
         return reply.status(400).send({ error: 'filiereIds is required' });
       }
 
-      const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds);
+      const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds, formationDetails);
 
       reply.status(200).send({ success: true, data: result });
     } catch (err) {

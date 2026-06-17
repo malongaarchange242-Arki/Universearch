@@ -4,6 +4,17 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UniversitesController = void 0;
+function parseFormationDetails(body) {
+    const details = body?.formationDetails ??
+        body?.formation_details ??
+        body?.details ??
+        body?.formation;
+    if (Array.isArray(details))
+        return details;
+    if (details && typeof details === 'object')
+        return [details];
+    return [];
+}
 class UniversitesController {
     service;
     constructor(service) {
@@ -62,10 +73,11 @@ class UniversitesController {
             const userId = req.user.id;
             const body = req.body;
             const filiereIds = Array.isArray(body && body.filiereIds) ? body.filiereIds : [];
+            const formationDetails = parseFormationDetails(body);
             if (!filiereIds.length) {
                 return reply.status(400).send({ error: 'filiereIds is required' });
             }
-            const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds);
+            const result = await this.service.attachFilieresToMyUniversite(userId, filiereIds, formationDetails);
             reply.status(200).send({ success: true, data: result });
         }
         catch (err) {
