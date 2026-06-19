@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.refreshHandler = exports.loginHandler = exports.registerHandler = void 0;
+exports.resetPasswordHandler = exports.forgotPasswordHandler = exports.updateSecurityHandler = exports.logoutHandler = exports.checkEmailHandler = exports.refreshHandler = exports.loginHandler = exports.registerHandler = void 0;
 const auth_service_1 = require("./auth.service");
 const supabase_1 = require("../../plugins/supabase"); // Supabase Admin client
 const buildFullName = (prenom, nom) => {
@@ -459,3 +459,83 @@ const updateSecurityHandler = async (request, reply) => {
     }
 };
 exports.updateSecurityHandler = updateSecurityHandler;
+/**
+ * Handler pour la réinitialisation de mot de passe via email
+ */
+const forgotPasswordHandler = async (request, reply) => {
+    try {
+        const { email } = request.body;
+        if (!email) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Email requis'
+            });
+        }
+        request.log.info({
+            action: 'forgot_password_attempt',
+            email,
+            ip: request.ip,
+        });
+        const result = await (0, auth_service_1.forgotPassword)(supabase_1.supabaseAdmin, email);
+        request.log.info({
+            action: 'forgot_password_sent',
+            email,
+        });
+        reply.status(200).send({
+            success: true,
+            message: result.message
+        });
+    }
+    catch (error) {
+        const err = error;
+        request.log.error({
+            action: 'forgot_password_failed',
+            error: err.message,
+            email: request.body?.email,
+        });
+        // Retourner un message générique pour des raisons de sécurité
+        reply.status(200).send({
+            success: true,
+            message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.'
+        });
+    }
+};
+exports.forgotPasswordHandler = forgotPasswordHandler;
+/**
+ * Handler pour la réinitialisation du mot de passe avec token
+ */
+const resetPasswordHandler = async (request, reply) => {
+    try {
+        const { token, password } = request.body;
+        if (!token || !password) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Token et mot de passe requis'
+            });
+        }
+        request.log.info({
+            action: 'reset_password_attempt',
+            ip: request.ip,
+        });
+        const result = await (0, auth_service_1.resetPassword)(supabase_1.supabaseAdmin, token, password);
+        request.log.info({
+            action: 'reset_password_success',
+        });
+        reply.status(200).send({
+            success: true,
+            message: result.message
+        });
+    }
+    catch (error) {
+        const err = error;
+        request.log.error({
+            action: 'reset_password_failed',
+            error: err.message,
+        });
+        reply.status(400).send({
+            success: false,
+            error: 'Erreur lors de la réinitialisation du mot de passe. Le lien a peut-être expiré.'
+        });
+    }
+};
+exports.resetPasswordHandler = resetPasswordHandler;

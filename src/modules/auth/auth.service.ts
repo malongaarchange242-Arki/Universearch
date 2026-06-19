@@ -26,6 +26,8 @@ const acquireRegistrationLock = (email: string): boolean => {
   return true;
 };
 
+
+
 /**
  * Libérer le verrou
  */
@@ -264,14 +266,10 @@ export const refreshAccessToken = async (
     throw new Error(`Invalid refresh token: ${(e as Error).message}`);
   }
 
-  if (
-    typeof decoded === 'string' ||
-    !decoded.id ||
-    decoded.type !== 'refresh'
-  ) {
+  if (typeof decoded === 'string' || !decoded || !(decoded as any).id || (decoded as any).type !== 'refresh') {
     throw new Error('Invalid refresh token payload');
   }
-
+  
   const tokenHash = hashToken(refreshToken);
   const now = new Date().toISOString();
 
@@ -665,5 +663,79 @@ export const loginUser = async (
   } catch (e) {
     console.error('Auth error:', (e as Error).message);
     throw new Error(`Authentication failed: ${(e as Error).message}`);
+  }
+};
+
+/**
+ * Forgot password - Envoyer un lien de réinitialisation via Supabase
+ */
+export const forgotPassword = async (
+  supabase: SupabaseClient,
+  email: string
+): Promise<{ message: string }> => {
+  // Vérifier que l'utilisateur existe
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, email')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(`Database error: ${profileError.message}`);
+  }
+
+  if (!profile) {
+    // Ne pas révéler si l'email existe ou non (sécurité)
+    return {
+      message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.',
+    };
+  }
+
+  // Utiliser la fonction Supabase native pour envoyer un lien de réinitialisation
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+  });
+
+  if (error) {
+    console.error('Reset password email error:', error.message);
+    throw new Error(`Failed to send reset email: ${error.message}`);
+  }
+  return {
+    message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.',
+  };
+};
+
+/**
+ * Reset password helper: proxie la requête vers l'API Gotrue de Supabase
+ * en utilisant le token (access_token) fourni par le client.
+ */
+export const resetPassword = async (
+  _supabase: SupabaseClient,
+  accessToken: string,
+  newPassword: string,
+): Promise<{ message: string }> => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  if (!supabaseUrl) throw new Error('Missing SUPABASE_URL configuration');
+
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ password: newPassword }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to reset password: ${text}`);
+    }
+
+    return { message: 'Mot de passe réinitialisé avec succès' };
+  } catch (err) {
+    const e = err as Error;
+    console.error('resetPassword proxy error:', e.message);
+    throw new Error(e.message);
   }
 };

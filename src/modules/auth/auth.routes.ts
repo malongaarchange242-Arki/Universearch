@@ -19,9 +19,12 @@ import {
   updateSecuritySchema,
   refreshSchema,
   logoutSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from './auth.schema';
 import { authenticate } from '../../middleware';
 
+import { forgotPasswordHandler, resetPasswordHandler } from './auth.controller';
 export const authRoutes = async (
   app: FastifyInstance,
   _options: FastifyPluginOptions
@@ -43,4 +46,8 @@ export const authRoutes = async (
 
   // Mise à jour des informations de sécurité (protégée)
   app.put('/update-security', { schema: updateSecuritySchema, preHandler: [authenticate] }, updateSecurityHandler);
+
+  // Réinitialisation de mot de passe
+  app.post('/forgot-password', { schema: forgotPasswordSchema }, forgotPasswordHandler);
+  app.post('/reset-password', { schema: resetPasswordSchema }, resetPasswordHandler);
 };

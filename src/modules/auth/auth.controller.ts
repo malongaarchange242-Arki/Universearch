@@ -7,6 +7,8 @@ import {
   LoginPayload,
   refreshAccessToken,
   revokeRefreshToken,
+  forgotPassword,
+  resetPassword,
 } from './auth.service';
 import { supabaseAdmin } from '../../plugins/supabase'; // Supabase Admin client
 
@@ -513,3 +515,103 @@ export const updateSecurityHandler = async (
     });
   }
 };
+
+/**
+ * Handler pour la réinitialisation de mot de passe via email
+ */
+export const forgotPasswordHandler = async (
+  request: FastifyRequest<{ Body: { email: string } }>,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const { email } = request.body;
+
+    if (!email) {
+      return reply.status(400).send({
+        success: false,
+        error: 'Email requis'
+      });
+    }
+
+    request.log.info({
+      action: 'forgot_password_attempt',
+      email,
+      ip: request.ip,
+    });
+
+    const result = await forgotPassword(supabaseAdmin, email);
+
+    request.log.info({
+      action: 'forgot_password_sent',
+      email,
+    });
+
+    reply.status(200).send({
+      success: true,
+      message: result.message
+    });
+
+  } catch (error) {
+    const err = error as Error;
+    request.log.error({
+      action: 'forgot_password_failed',
+      error: err.message,
+      email: request.body?.email,
+    });
+
+    // Retourner un message générique pour des raisons de sécurité
+    reply.status(200).send({
+      success: true,
+      message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.'
+    });
+  }
+};
+
+/**
+ * Handler pour la réinitialisation du mot de passe avec token
+ */
+export const resetPasswordHandler = async (
+  request: FastifyRequest<{ Body: { token: string; password: string } }>,
+  reply: FastifyReply
+): Promise<void> => {
+  try {
+    const { token, password } = request.body;
+
+    if (!token || !password) {
+      return reply.status(400).send({
+        success: false,
+        error: 'Token et mot de passe requis'
+      });
+    }
+
+    request.log.info({
+      action: 'reset_password_attempt',
+      ip: request.ip,
+    });
+
+    const result = await resetPassword(supabaseAdmin, token, password);
+
+    request.log.info({
+      action: 'reset_password_success',
+    });
+
+    reply.status(200).send({
+      success: true,
+      message: result.message
+    });
+
+  } catch (error) {
+    const err = error as Error;
+    request.log.error({
+      action: 'reset_password_failed',
+      error: err.message,
+    });
+
+    reply.status(400).send({
+      success: false,
+      error: 'Erreur lors de la réinitialisation du mot de passe. Le lien a peut-être expiré.'
+    });
+  }
+};
+
+ 

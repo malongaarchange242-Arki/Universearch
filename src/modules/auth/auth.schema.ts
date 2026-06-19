@@ -177,3 +177,36 @@ export const updateSecuritySchema = {
     ]
   }
 };
+
+  export const forgotPasswordSchema = {
+    body: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email: {
+          type: 'string',
+          format: 'email',
+          description: 'Email utilisateur pour réinitialisation du mot de passe'
+        }
+      }
+    }
+  };
+
+export const resetPasswordSchema = {
+  body: {
+    type: 'object',
+    required: ['token', 'password'],
+    properties: {
+      token: {
+        type: 'string',
+        minLength: 1,
+        description: 'Token de réinitialisation envoyé par email'
+      },
+      password: {
+        type: 'string',
+        minLength: 8,
+        description: 'Nouveau mot de passe'
+      }
+    }
+  }
+};

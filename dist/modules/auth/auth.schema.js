@@ -7,7 +7,7 @@
  * Aucun traitement métier ici.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateSecuritySchema = exports.checkEmailSchema = exports.logoutSchema = exports.refreshSchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.resetPasswordSchema = exports.forgotPasswordSchema = exports.updateSecuritySchema = exports.checkEmailSchema = exports.logoutSchema = exports.refreshSchema = exports.loginSchema = exports.registerSchema = void 0;
 exports.registerSchema = {
     body: {
         type: 'object',
@@ -67,6 +67,12 @@ exports.registerSchema = {
             genre: {
                 type: 'string',
                 enum: ['homme', 'femme', 'autre']
+            },
+            quartier: {
+                type: 'string',
+                minLength: 2,
+                maxLength: 100,
+                description: 'Quartier de l’utilisateur'
             }
         },
         allOf: [
@@ -75,7 +81,7 @@ exports.registerSchema = {
                     properties: { profileType: { const: 'utilisateur' } }
                 },
                 then: {
-                    required: ['userType']
+                    required: ['userType', 'quartier']
                 }
             }
         ]
@@ -166,5 +172,36 @@ exports.updateSecuritySchema = {
             { required: ['current_password', 'new_password'] },
             { required: ['current_password', 'new_email'] }
         ]
+    }
+};
+exports.forgotPasswordSchema = {
+    body: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+            email: {
+                type: 'string',
+                format: 'email',
+                description: 'Email utilisateur pour réinitialisation du mot de passe'
+            }
+        }
+    }
+};
+exports.resetPasswordSchema = {
+    body: {
+        type: 'object',
+        required: ['token', 'password'],
+        properties: {
+            token: {
+                type: 'string',
+                minLength: 1,
+                description: 'Token de réinitialisation envoyé par email'
+            },
+            password: {
+                type: 'string',
+                minLength: 8,
+                description: 'Nouveau mot de passe'
+            }
+        }
     }
 };

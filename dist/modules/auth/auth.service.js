@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loginUser = exports.registerUser = exports.refreshAccessToken = exports.revokeRefreshToken = exports.generateToken = void 0;
+exports.resetPassword = exports.forgotPassword = exports.loginUser = exports.registerUser = exports.refreshAccessToken = exports.revokeRefreshToken = exports.generateToken = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const dotenv = __importStar(require("dotenv"));
@@ -135,6 +135,7 @@ const ensureProfileRow = async (supabase, userId, profileData) => {
         telephone: profileData.telephone,
         date_naissance: profileData.dateNaissance || null,
         genre: profileData.genre || null,
+        quartier: profileData.profileType === 'utilisateur' ? profileData.quartier || null : null,
     };
     if (!existingProfile) {
         const { error } = await supabase.from('profiles').insert({
@@ -185,9 +186,7 @@ const refreshAccessToken = async (supabase, refreshToken) => {
     catch (e) {
         throw new Error(`Invalid refresh token: ${e.message}`);
     }
-    if (typeof decoded === 'string' ||
-        !decoded.id ||
-        decoded.type !== 'refresh') {
+    if (typeof decoded === 'string' || !decoded || !decoded.id || decoded.type !== 'refresh') {
         throw new Error('Invalid refresh token payload');
     }
     const tokenHash = hashToken(refreshToken);
@@ -237,7 +236,7 @@ exports.refreshAccessToken = refreshAccessToken;
  * Idempotent et sécurisé contre les doubles créations
  */
 const registerUser = async (supabase, payload) => {
-    const { email, nom, prenom, telephone, profileType, userType, dateNaissance, genre } = payload;
+    const { email, nom, prenom, telephone, profileType, userType, dateNaissance, genre, quartier, } = payload;
     // Validation des données d'entrée
     if (!email || !nom || !telephone || !profileType) {
         throw new Error('Missing required fields: email, nom, telephone, profileType');
@@ -245,6 +244,9 @@ const registerUser = async (supabase, payload) => {
     // Validation spécifique pour utilisateur
     if (profileType === 'utilisateur' && !userType) {
         throw new Error('userType is required for utilisateur profile type');
+    }
+    if (profileType === 'utilisateur' && !quartier) {
+        throw new Error('quartier is required for utilisateur profile type');
     }
     // Protection contre les doubles soumissions
     if (!acquireRegistrationLock(email)) {
@@ -289,6 +291,9 @@ const registerUser = async (supabase, payload) => {
             date_naissance: dateNaissance || null,
             genre: genre || null,
         };
+        if (profileType === 'utilisateur') {
+            userMetadata.quartier = quartier || null;
+        }
         // Ajouter userType pour les utilisateurs
         if (profileType === 'utilisateur' && userType) {
             userMetadata.user_type = userType;
@@ -348,6 +353,7 @@ const registerUser = async (supabase, payload) => {
             profileType,
             dateNaissance: dateNaissance || null,
             genre: genre || null,
+            quartier: quartier || null,
         });
         // Créer l'enregistrement dans la table spécifique selon profileType
         try {
@@ -516,3 +522,65 @@ const loginUser = async (supabase, payload) => {
     }
 };
 exports.loginUser = loginUser;
+/**
+ * Forgot password - Envoyer un lien de réinitialisation via Supabase
+ */
+const forgotPassword = async (supabase, email) => {
+    // Vérifier que l'utilisateur existe
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .maybeSingle();
+    if (profileError) {
+        throw new Error(`Database error: ${profileError.message}`);
+    }
+    if (!profile) {
+        // Ne pas révéler si l'email existe ou non (sécurité)
+        return {
+            message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.',
+        };
+    }
+    // Utiliser la fonction Supabase native pour envoyer un lien de réinitialisation
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+    });
+    if (error) {
+        console.error('Reset password email error:', error.message);
+        throw new Error(`Failed to send reset email: ${error.message}`);
+    }
+    return {
+        message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.',
+    };
+};
+exports.forgotPassword = forgotPassword;
+/**
+ * Reset password helper: proxie la requête vers l'API Gotrue de Supabase
+ * en utilisant le token (access_token) fourni par le client.
+ */
+const resetPassword = async (_supabase, accessToken, newPassword) => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    if (!supabaseUrl)
+        throw new Error('Missing SUPABASE_URL configuration');
+    try {
+        const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ password: newPassword }),
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Failed to reset password: ${text}`);
+        }
+        return { message: 'Mot de passe réinitialisé avec succès' };
+    }
+    catch (err) {
+        const e = err;
+        console.error('resetPassword proxy error:', e.message);
+        throw new Error(e.message);
+    }
+};
+exports.resetPassword = resetPassword;
