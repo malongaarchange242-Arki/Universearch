@@ -65,6 +65,12 @@ export const registerSchema = {
       genre: {
         type: 'string',
         enum: ['homme', 'femme', 'autre']
+      },
+      quartier: {
+        type: 'string',
+        minLength: 2,
+        maxLength: 100,
+        description: 'Quartier de l’utilisateur'
       }
     },
     allOf: [
@@ -73,7 +79,7 @@ export const registerSchema = {
           properties: { profileType: { const: 'utilisateur' } }
         },
         then: {
-          required: ['userType']
+          required: ['userType', 'quartier']
         }
       }
     ]

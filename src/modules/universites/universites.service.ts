@@ -14,10 +14,12 @@ export interface UniversiteRecord {
   annee_fondation?: number;
   contacts?: string | null;
   email?: string;
+  ville?: string | null;
   statut: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   logo_url?: string;
   couverture_logo_url?: string;
   lien_site?: string;
+  primary_color?: string | null;
   domaine?: string;
   video_url?: string;
   date_creation: string;
@@ -124,10 +126,12 @@ export class UniversitesService {
         annee_fondation: (payload as any).annee_fondation ?? null,
         contacts: (payload as any).contacts ?? null,
         email: payload.email ?? null,
+        ville: (payload as any).ville ?? null,
         statut: (payload.statut as any) ?? 'PENDING',
         logo_url: payload.logo_url ?? null,
         couverture_logo_url: payload.couverture_logo_url ?? null,
         lien_site: payload.lien_site ?? null,
+        primary_color: (payload as any).primary_color ?? null,
         domaine: payload.domaine ?? null,
         video_url: payload.video_url ?? null,
         date_creation: new Date().toISOString(),
@@ -232,10 +236,12 @@ export class UniversitesService {
         annee_fondation: updateData.annee_fondation || null,
         contacts: updateData.contacts || null,
         email: updateData.email || null,
+        ville: updateData.ville || null,
         statut: 'PENDING',
         logo_url: updateData.logo_url || null,
         couverture_logo_url: updateData.couverture_logo_url || null,
         lien_site: updateData.lien_site || null,
+        primary_color: updateData.primary_color || null,
         domaine: updateData.domaine || null,
         video_url: updateData.video_url || null,
         date_creation: new Date().toISOString(),
@@ -362,10 +368,12 @@ export class UniversitesService {
       annee_fondation: universite.annee_fondation,
       contacts: universite.contacts,
       email: universite.email,
+      ville: universite.ville,
       statut: universite.statut,
       logo_url: universite.logo_url,
       couverture_logo_url: universite.couverture_logo_url,
       lien_site: universite.lien_site,
+      primary_color: universite.primary_color,
       domaine: universite.domaine,
       video_url: universite.video_url,
       date_creation: universite.date_creation,

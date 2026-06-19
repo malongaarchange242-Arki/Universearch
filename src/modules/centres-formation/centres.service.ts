@@ -12,10 +12,12 @@ export interface CentreFormationRecord {
   description?: string;
   email?: string;
   contacts?: string;
+  ville?: string | null;
   statut: 'PENDING' | 'APPROVED' | 'REJECTED';
   logo_url?: string;
   couverture_logo_url?: string;
   lien_site?: string;
+  primary_color?: string | null;
   video_url?: string;
   date_creation: string;
   updated_at?: string;
@@ -65,10 +67,12 @@ export class CentresService {
         description: payload.description ?? null,
         email: payload.email ?? null,
         contacts: payload.contacts ?? null,
+        ville: (payload as any).ville ?? null,
         statut: (payload.statut as any) ?? 'PENDING',
         logo_url: payload.logo_url ?? null,
         couverture_logo_url: payload.couverture_logo_url ?? null,
         lien_site: payload.lien_site ?? null,
+        primary_color: (payload as any).primary_color ?? null,
         video_url: payload.video_url ?? null,
         sigle: (payload as any).sigle ?? null,
         annee_fondation: (payload as any).annee_fondation ?? null,
@@ -198,10 +202,12 @@ export class CentresService {
         description: updateData.description || null,
         email: updateData.email || null,
         contacts: updateData.contacts || null,
+        ville: updateData.ville || null,
         statut: 'PENDING',
         logo_url: updateData.logo_url || null,
         couverture_logo_url: updateData.couverture_logo_url || null,
         lien_site: updateData.lien_site || null,
+        primary_color: updateData.primary_color || null,
         video_url: updateData.video_url || null,
         sigle: (updateData as any).sigle || null,
         annee_fondation: (updateData as any).annee_fondation || null,

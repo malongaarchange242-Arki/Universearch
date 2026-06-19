@@ -228,6 +228,11 @@ export class FollowersService {
    * Compter les followers d'une université
    */
   async countUniversiteFollowers(universiteId: string): Promise<number> {
+    console.debug('[followers/count] universite query', {
+      table: 'followers_universites',
+      filter: { universite_id: universiteId },
+    });
+
     const { count, error } = await this.supabase
       .from('followers_universites')
       .select('*', { count: 'exact', head: true })
@@ -237,13 +242,24 @@ export class FollowersService {
       throw new Error(`Failed to count followers: ${error.message}`);
     }
 
-    return count || 0;
+    const normalizedCount = count || 0;
+    console.debug('[followers/count] universite count returned', {
+      universiteId,
+      count: normalizedCount,
+    });
+
+    return normalizedCount;
   }
 
   /**
    * Compter les followers d'un centre de formation
    */
   async countCentreFollowers(centreId: string): Promise<number> {
+    console.debug('[followers/count] centre query', {
+      table: 'followers_centres_formation',
+      filter: { centre_id: centreId },
+    });
+
     const { count, error } = await this.supabase
       .from('followers_centres_formation')
       .select('*', { count: 'exact', head: true })
@@ -253,6 +269,12 @@ export class FollowersService {
       throw new Error(`Failed to count followers: ${error.message}`);
     }
 
-    return count || 0;
+    const normalizedCount = count || 0;
+    console.debug('[followers/count] centre count returned', {
+      centreId,
+      count: normalizedCount,
+    });
+
+    return normalizedCount;
   }
 }

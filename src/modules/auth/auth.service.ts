@@ -64,6 +64,7 @@ export interface RegisterPayload {
   userType?: 'bachelier' | 'etudiant' | 'parent';
   dateNaissance?: string;
   genre?: string;
+  quartier?: string;
 }
 
 export interface LoginPayload {
@@ -174,6 +175,7 @@ const ensureProfileRow = async (
     profileType: string;
     dateNaissance?: string | null;
     genre?: string | null;
+    quartier?: string | null;
   }
 ): Promise<void> => {
   const { data: existingProfile, error: existingProfileError } = await supabase
@@ -194,6 +196,7 @@ const ensureProfileRow = async (
     telephone: profileData.telephone,
     date_naissance: profileData.dateNaissance || null,
     genre: profileData.genre || null,
+    quartier: profileData.profileType === 'utilisateur' ? profileData.quartier || null : null,
   };
 
   if (!existingProfile) {
@@ -329,7 +332,7 @@ export const registerUser = async (
   supabase: SupabaseClient,
   payload: RegisterPayload
 ): Promise<AuthResult> => {
-  const { email, nom, prenom, telephone, profileType, userType, dateNaissance, genre } = payload;
+  const { email, nom, prenom, telephone, profileType, userType, dateNaissance, genre, quartier, } = payload;
 
   // Validation des données d'entrée
   if (!email || !nom || !telephone || !profileType) {
@@ -339,6 +342,10 @@ export const registerUser = async (
   // Validation spécifique pour utilisateur
   if (profileType === 'utilisateur' && !userType) {
     throw new Error('userType is required for utilisateur profile type');
+  }
+
+  if (profileType === 'utilisateur' && !quartier) {
+    throw new Error('quartier is required for utilisateur profile type');
   }
 
   // Protection contre les doubles soumissions
@@ -391,6 +398,10 @@ export const registerUser = async (
     date_naissance: dateNaissance || null,
     genre: genre || null,
   };
+
+  if (profileType === 'utilisateur') {
+    userMetadata.quartier = quartier || null;
+  }
 
   // Ajouter userType pour les utilisateurs
   if (profileType === 'utilisateur' && userType) {
@@ -460,6 +471,7 @@ export const registerUser = async (
     profileType,
     dateNaissance: dateNaissance || null,
     genre: genre || null,
+    quartier: quartier || null,
   });
 
   // Créer l'enregistrement dans la table spécifique selon profileType

@@ -77,10 +77,11 @@ class FollowersController {
     async countUniversiteFollowers(req, reply) {
         try {
             const { id: universiteId } = req.params;
+            req.log.info({ universiteId }, '[followers/count] universiteId received');
             const count = await this.service.countUniversiteFollowers(universiteId);
+            req.log.info({ universiteId, count }, '[followers/count] universite count returned');
             reply.status(200).send({
-                universiteId,
-                followerCount: count,
+                count,
             });
         }
         catch (err) {
@@ -158,10 +159,11 @@ class FollowersController {
     async countCentreFollowers(req, reply) {
         try {
             const { id: centreId } = req.params;
+            req.log.info({ centreId }, '[followers/count] centreId received');
             const count = await this.service.countCentreFollowers(centreId);
+            req.log.info({ centreId, count }, '[followers/count] centre count returned');
             reply.status(200).send({
-                centreId,
-                followerCount: count,
+                count,
             });
         }
         catch (err) {

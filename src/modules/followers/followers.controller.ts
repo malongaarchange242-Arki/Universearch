@@ -82,12 +82,13 @@ export class FollowersController {
   async countUniversiteFollowers(req: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: universiteId } = req.params as { id: string };
+      req.log.info({ universiteId }, '[followers/count] universiteId received');
 
       const count = await this.service.countUniversiteFollowers(universiteId);
+      req.log.info({ universiteId, count }, '[followers/count] universite count returned');
 
       reply.status(200).send({
-        universiteId,
-        followerCount: count,
+        count,
       });
     } catch (err) {
       req.log.error(err);
@@ -171,12 +172,13 @@ export class FollowersController {
   async countCentreFollowers(req: FastifyRequest, reply: FastifyReply) {
     try {
       const { id: centreId } = req.params as { id: string };
+      req.log.info({ centreId }, '[followers/count] centreId received');
 
       const count = await this.service.countCentreFollowers(centreId);
+      req.log.info({ centreId, count }, '[followers/count] centre count returned');
 
       reply.status(200).send({
-        centreId,
-        followerCount: count,
+        count,
       });
     } catch (err) {
       req.log.error(err);
