@@ -9,6 +9,7 @@ export interface UniversiteRecord {
   id: string;
   profile_id: string;
   nom: string;
+  nom_representant?: string | null;
   description?: string;
   sigle?: string;
   annee_fondation?: number;
@@ -121,6 +122,7 @@ export class UniversitesService {
         id: uniId,
         profile_id: profileId,
         nom: payload.nom ?? null,
+        nom_representant: (payload as any).nom_representant ?? null,
         description: payload.description ?? null,
         sigle: (payload as any).sigle ?? null,
         annee_fondation: (payload as any).annee_fondation ?? null,
@@ -240,7 +242,8 @@ export class UniversitesService {
         statut: 'PENDING',
         logo_url: updateData.logo_url || null,
         couverture_logo_url: updateData.couverture_logo_url || null,
-        lien_site: updateData.lien_site || null,
+      nom_representant: updateData.nom_representant || null,
+      lien_site: updateData.lien_site || null,
         primary_color: updateData.primary_color || null,
         domaine: updateData.domaine || null,
         video_url: updateData.video_url || null,

@@ -71,6 +71,12 @@ export const registerSchema = {
         minLength: 2,
         maxLength: 100,
         description: 'Quartier de l’utilisateur'
+      },
+      nom_representant: {
+        type: 'string',
+        minLength: 2,
+        maxLength: 100,
+        description: 'Nom du gestionnaire représentant l’établissement'
       }
     },
     allOf: [

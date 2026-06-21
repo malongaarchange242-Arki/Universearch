@@ -63,6 +63,7 @@ export interface RegisterPayload {
     | 'universite'
     | 'bde'
     | 'centre_formation';
+  nom_representant?: string | null;
   userType?: 'bachelier' | 'etudiant' | 'parent';
   dateNaissance?: string;
   genre?: string;
@@ -518,6 +519,7 @@ export const registerUser = async (
           id: userId,
           profile_id: userId,
           nom,
+          nom_representant: payload.nom_representant ?? null,
           email,
           statut: 'PENDING',
           date_creation: new Date().toISOString(),
@@ -534,6 +536,7 @@ export const registerUser = async (
           id: userId,
           profile_id: userId,
           nom,
+          nom_representant: payload.nom_representant ?? null,
           email,
           statut: 'PENDING',
           date_creation: new Date().toISOString(),

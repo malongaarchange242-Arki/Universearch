@@ -78,6 +78,7 @@ CREATE TABLE universites_scores (
 CREATE TABLE public.universites (
   id uuid PRIMARY KEY, -- même id que le user Supabase
   nom text NOT NULL,
+  nom_representant text,
   description text,
   contacts text,
   email text,
@@ -101,6 +102,7 @@ CREATE TABLE public.universites (
 CREATE TABLE public.centres_formation (
   id uuid PRIMARY KEY, -- même id que le user Supabase
   nom text NOT NULL,
+  nom_representant text,
   description text,
   contacts text,
   email text,

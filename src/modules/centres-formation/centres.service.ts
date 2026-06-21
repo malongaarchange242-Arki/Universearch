@@ -9,6 +9,7 @@ export interface CentreFormationRecord {
   id: string;
   profile_id: string;
   nom: string;
+  nom_representant?: string | null;
   description?: string;
   email?: string;
   contacts?: string;
@@ -64,6 +65,7 @@ export class CentresService {
         id: centreId,
         profile_id: profileId,
         nom: payload.nom ?? null,
+        nom_representant: (payload as any).nom_representant ?? null,
         description: payload.description ?? null,
         email: payload.email ?? null,
         contacts: payload.contacts ?? null,
@@ -207,6 +209,7 @@ export class CentresService {
         logo_url: updateData.logo_url || null,
         couverture_logo_url: updateData.couverture_logo_url || null,
         lien_site: updateData.lien_site || null,
+        nom_representant: updateData.nom_representant || null,
         primary_color: updateData.primary_color || null,
         video_url: updateData.video_url || null,
         sigle: (updateData as any).sigle || null,
