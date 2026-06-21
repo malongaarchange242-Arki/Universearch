@@ -521,6 +521,7 @@ export const registerUser = async (
           nom,
           nom_representant: payload.nom_representant ?? null,
           email,
+          contacts: telephone ?? null,
           statut: 'PENDING',
           date_creation: new Date().toISOString(),
         });
@@ -538,6 +539,7 @@ export const registerUser = async (
           nom,
           nom_representant: payload.nom_representant ?? null,
           email,
+          contacts: telephone ?? null,
           statut: 'PENDING',
           date_creation: new Date().toISOString(),
         });
