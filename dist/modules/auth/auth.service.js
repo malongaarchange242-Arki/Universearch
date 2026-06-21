@@ -100,6 +100,13 @@ const generateRefreshTokenJwt = (payload) => {
     });
 };
 const hashToken = (token) => crypto_1.default.createHash('sha256').update(token).digest('hex');
+const getPublicAppUrl = () => {
+    const configuredUrl = process.env.FRONTEND_URL ||
+        process.env.PUBLIC_FRONTEND_URL ||
+        process.env.IDENTITY_PUBLIC_URL ||
+        'https://universearch-pwlf.onrender.com';
+    return configuredUrl.replace(/\/$/, '');
+};
 const issueRefreshToken = async (supabase, userId) => {
     const refreshToken = generateRefreshTokenJwt({
         id: userId,
@@ -543,7 +550,7 @@ const forgotPassword = async (supabase, email) => {
     }
     // Utiliser la fonction Supabase native pour envoyer un lien de réinitialisation
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+        redirectTo: `${getPublicAppUrl()}/reset-password`,
     });
     if (error) {
         console.error('Reset password email error:', error.message);
