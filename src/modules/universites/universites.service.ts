@@ -37,6 +37,12 @@ export interface UniversiteRecord {
       lieu?: string | null;
       langue?: string | null;
       frais_inscription?: string | null;
+      frais_l1?: string | null;
+      frais_l2?: string | null;
+      frais_l3?: string | null;
+      frais_m1?: string | null;
+      frais_m2?: string | null;
+      frais_m3?: string | null;
       description?: string | null;
       prerequis?: string | null;
       alternance?: boolean | null;
@@ -54,6 +60,12 @@ type FormationDetailsPayload = {
   lieu?: string | null;
   langue?: string | null;
   frais_inscription?: string | null;
+  frais_l1?: string | null;
+  frais_l2?: string | null;
+  frais_l3?: string | null;
+  frais_m1?: string | null;
+  frais_m2?: string | null;
+  frais_m3?: string | null;
   description?: string | null;
   prerequis?: string | null;
   alternance?: boolean | string | null;
@@ -84,6 +96,12 @@ function normalizeFormationDetails(details?: FormationDetailsPayload) {
     lieu: cleanFormationText(details.lieu),
     langue: cleanFormationText(details.langue),
     frais_inscription: cleanFormationText(details.frais_inscription),
+    frais_l1: cleanFormationText(details.frais_l1),
+    frais_l2: cleanFormationText(details.frais_l2),
+    frais_l3: cleanFormationText(details.frais_l3),
+    frais_m1: cleanFormationText(details.frais_m1),
+    frais_m2: cleanFormationText(details.frais_m2),
+    frais_m3: cleanFormationText(details.frais_m3),
     description: cleanFormationText(details.description),
     prerequis: cleanFormationText(details.prerequis),
     alternance,
@@ -329,6 +347,12 @@ export class UniversitesService {
       lieu?: string | null;
       langue?: string | null;
       frais_inscription?: string | null;
+      frais_l1?: string | null;
+      frais_l2?: string | null;
+      frais_l3?: string | null;
+      frais_m1?: string | null;
+      frais_m2?: string | null;
+      frais_m3?: string | null;
       description?: string | null;
       prerequis?: string | null;
       alternance?: boolean | null;
@@ -349,7 +373,13 @@ export class UniversitesService {
           duree: row.duree ?? null,
           lieu: row.lieu ?? null,
           langue: row.langue ?? null,
-          frais_inscription: row.frais_inscription ?? null,
+            frais_inscription: row.frais_inscription ?? null,
+            frais_l1: row.frais_l1 ?? null,
+            frais_l2: row.frais_l2 ?? null,
+            frais_l3: row.frais_l3 ?? null,
+            frais_m1: row.frais_m1 ?? null,
+            frais_m2: row.frais_m2 ?? null,
+            frais_m3: row.frais_m3 ?? null,
           description: row.description ?? null,
           prerequis: row.prerequis ?? null,
           alternance: row.alternance ?? null

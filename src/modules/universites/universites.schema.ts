@@ -44,6 +44,12 @@ const universitePublicProperties = {
               lieu: { type: ['string', 'null'] },
               langue: { type: ['string', 'null'] },
               frais_inscription: { type: ['string', 'null'] },
+              frais_l1: { type: ['string', 'null'] },
+              frais_l2: { type: ['string', 'null'] },
+              frais_l3: { type: ['string', 'null'] },
+              frais_m1: { type: ['string', 'null'] },
+              frais_m2: { type: ['string', 'null'] },
+              frais_m3: { type: ['string', 'null'] },
               description: { type: ['string', 'null'] },
               prerequis: { type: ['string', 'null'] },
               alternance: { type: ['boolean', 'null'] }
