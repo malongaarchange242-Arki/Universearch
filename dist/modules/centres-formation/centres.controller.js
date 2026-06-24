@@ -168,19 +168,19 @@ class CentresController {
     }
     /**
      * POST /centres/me/filieres
-     * Attacher les filières au centre de l'utilisateur
+     * Attacher les formations au centre de l'utilisateur (formations professionnelles)
      */
     async attachFilieresToMyCentre(req, reply) {
         try {
             const userId = req.user.id;
-            const { filiereIds } = req.body;
-            if (!Array.isArray(filiereIds)) {
+            const { filiereIds, formationDetails } = req.body;
+            if (formationDetails && !Array.isArray(formationDetails)) {
                 return reply.status(400).send({
                     success: false,
-                    error: 'filiereIds must be an array',
+                    error: 'formationDetails must be an array',
                 });
             }
-            const result = await this.service.attachFilieresToMyCentre(userId, filiereIds);
+            const result = await this.service.attachProfessionalFormationToMyCentre(userId, formationDetails || []);
             return reply.status(200).send({
                 success: true,
                 data: result,

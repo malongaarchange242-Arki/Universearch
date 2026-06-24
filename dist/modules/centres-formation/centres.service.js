@@ -16,7 +16,6 @@ class CentresService {
     async createCentre(payload) {
         const profileId = (0, crypto_1.randomUUID)();
         const centreId = (0, crypto_1.randomUUID)();
-        // Insert profile
         const { error: profileError } = await this.supabase
             .from('profiles')
             .insert({
@@ -94,6 +93,7 @@ class CentresService {
      */
     processCentreWithDomaines(centre) {
         const domaineMap = new Map();
+        const centreFilieres = [];
         (centre.centre_formation_filieres || []).forEach((item) => {
             const filiere = item.filieres_centre;
             if (filiere && filiere.domaines_centre) {
@@ -110,8 +110,26 @@ class CentresService {
                     nom: filiere.nom
                 });
             }
+            centreFilieres.push({
+                id: item.id,
+                filiere_id: item.filiere_id || null,
+                nom_formation: item.nom_formation || (filiere ? filiere.nom : null),
+                categorie_domaine: item.categorie_domaine || null,
+                type_certification: item.type_certification || null,
+                duree: item.duree || null,
+                cout_formation: item.cout_formation || null,
+                lieu: item.lieu || null,
+                mode_formation: item.mode_formation || null,
+                langue: item.langue || 'Français',
+                description: item.description || null,
+                prerequis: item.prerequis || null,
+                stage_alternance: item.stage_alternance,
+                created_at: item.created_at,
+                updated_at: item.updated_at
+            });
         });
         centre.domaines = Array.from(domaineMap.values());
+        centre.filieres = centreFilieres;
         // Remove the nested data to clean up the response
         delete centre.centre_formation_filieres;
         return centre;
@@ -307,7 +325,7 @@ class CentresService {
      * Attacher les filières au centre de l'utilisateur connecté
      * POST /centres/me/filieres
      */
-    async attachFilieresToMyCentre(userId, filiereIds) {
+    async attachProfessionalFormationToMyCentre(userId, formationDetails = []) {
         // 1️⃣ Trouver le centre de l'utilisateur
         const { data: centre, error: centreErr } = await this.supabase
             .from('centres_formation')
@@ -318,55 +336,115 @@ class CentresService {
             throw new Error('Centre not found for your account');
         }
         const centreId = centre.id;
-        // 2️⃣ Dédupliquer les IDs
-        const uniqueIds = Array.from(new Set(filiereIds.map(String)));
-        // 3️⃣ Vérifier que les filières existent
-        const { data: validFilieres, error: filieresErr } = await this.supabase
-            .from('filieres_centre')
-            .select('id')
-            .in('id', uniqueIds);
-        if (filieresErr) {
-            throw new Error(`Failed to validate filieres: ${filieresErr.message}`);
-        }
-        console.log(`✅ [DEBUG] Found ${(validFilieres || []).length} valid filieres out of ${uniqueIds.length}`);
-        // 4️⃣ Récupérer les associations existantes
-        const { data: existingAssocs, error: existingErr } = await this.supabase
-            .from('centre_formation_filieres')
-            .select('filiere_id')
-            .eq('centre_formation_id', centreId);
-        if (existingErr) {
-            throw new Error(`Failed to check existing associations: ${existingErr.message}`);
-        }
-        const existingIds = new Set((existingAssocs || []).map((a) => a.filiere_id));
-        console.log(`📊 [DEBUG] Found ${existingIds.size} existing associations`);
-        // 5️⃣ Calculer les nouvelles associations
-        const newIds = uniqueIds.filter(id => !existingIds.has(id));
-        console.log(`ℹ️ [DEBUG] ${newIds.length} new associations to insert`);
-        if (newIds.length === 0) {
+        if (!Array.isArray(formationDetails) || formationDetails.length === 0) {
             return {
                 inserted: 0,
-                skipped: uniqueIds.length,
-                message: 'All filieres were already associated'
+                updated: 0,
+                message: 'No formation details provided'
             };
         }
-        // 6️⃣ Insérer les nouvelles associations
-        const inserts = newIds.map(filiereId => ({
-            centre_formation_id: centreId,
-            filiere_id: filiereId,
-            id: (0, crypto_1.randomUUID)(),
-        }));
-        console.log(`🔗 [DEBUG] Inserting ${inserts.length} rows into centre_formation_filieres`);
-        const { error: insertErr } = await this.supabase
-            .from('centre_formation_filieres')
-            .insert(inserts);
-        if (insertErr) {
-            throw new Error(`Failed to insert associations: ${insertErr.message}`);
+        let inserted = 0;
+        let updated = 0;
+        // 2️⃣ Traiter chaque formation professionnelle
+        for (const formation of formationDetails) {
+            if (!formation.nom_formation) {
+                console.warn('Formation without nom_formation, skipping');
+                continue;
+            }
+            // Determine filiere_id from payload or category/domain name
+            let filiere_id = null;
+            if (formation.filiere_id) {
+                filiere_id = String(formation.filiere_id).trim() || null;
+            }
+            const normalizedCategory = String(formation.categorie_domaine || '').trim();
+            if (!filiere_id && normalizedCategory) {
+                const { data: filiereMatch, error: filiereMatchErr } = await this.supabase
+                    .from('filieres_centre')
+                    .select('id')
+                    .ilike('nom', normalizedCategory)
+                    .limit(1);
+                if (filiereMatchErr) {
+                    console.error('Error looking up filiere by categorie_domaine:', filiereMatchErr);
+                }
+                else if (Array.isArray(filiereMatch) && filiereMatch.length > 0) {
+                    filiere_id = filiereMatch[0].id;
+                }
+            }
+            if (!filiere_id && normalizedCategory) {
+                const { data: insertedFiliere, error: insertFiliereErr } = await this.supabase
+                    .from('filieres_centre')
+                    .insert({ id: (0, crypto_1.randomUUID)(), nom: normalizedCategory })
+                    .select('id')
+                    .single();
+                if (insertFiliereErr) {
+                    console.error('Error creating new filiere_centre:', insertFiliereErr);
+                }
+                else {
+                    filiere_id = insertedFiliere?.id || null;
+                }
+            }
+            // Normaliser les données
+            const normalizedFormation = {
+                centre_formation_id: centreId,
+                filiere_id: filiere_id || null,
+                nom_formation: String(formation.nom_formation || '').trim(),
+                categorie_domaine: normalizedCategory || null,
+                type_certification: String(formation.type_certification || '').trim() || null,
+                duree: String(formation.duree || '').trim() || null,
+                cout_formation: String(formation.cout_formation || '').trim() || null,
+                lieu: String(formation.lieu || '').trim() || null,
+                mode_formation: String(formation.mode_formation || '').trim() || null,
+                langue: String(formation.langue || 'Français').trim(),
+                description: String(formation.description || '').trim() || null,
+                prerequis: String(formation.prerequis || '').trim() || null,
+                stage_alternance: typeof formation.stage_alternance === 'boolean'
+                    ? formation.stage_alternance
+                    : ['oui', 'true', '1', 'yes'].includes(String(formation.stage_alternance).toLowerCase()),
+                updated_at: new Date().toISOString()
+            };
+            // 3️⃣ Vérifier si la formation existe déjà (par nom_formation)
+            const { data: existing, error: checkErr } = await this.supabase
+                .from('centre_formation_filieres')
+                .select('id')
+                .eq('centre_formation_id', centreId)
+                .eq('nom_formation', normalizedFormation.nom_formation)
+                .single();
+            if (checkErr && checkErr.code !== 'PGRST116') {
+                console.error('Error checking existing formation:', checkErr);
+                continue;
+            }
+            if (existing) {
+                // Mettre à jour
+                const { error: updateErr } = await this.supabase
+                    .from('centre_formation_filieres')
+                    .update(normalizedFormation)
+                    .eq('id', existing.id);
+                if (updateErr) {
+                    console.error('Error updating formation:', updateErr);
+                    continue;
+                }
+                updated++;
+            }
+            else {
+                // Insérer
+                const { error: insertErr } = await this.supabase
+                    .from('centre_formation_filieres')
+                    .insert({
+                    id: (0, crypto_1.randomUUID)(),
+                    ...normalizedFormation,
+                    created_at: new Date().toISOString()
+                });
+                if (insertErr) {
+                    console.error('Error inserting formation:', insertErr);
+                    continue;
+                }
+                inserted++;
+            }
         }
-        console.log(`✅ [DEBUG] Successfully inserted ${newIds.length} associations`);
         return {
-            inserted: newIds.length,
-            skipped: existingIds.size,
-            message: `Successfully attached ${newIds.length} filieres`
+            inserted,
+            updated,
+            message: `Successfully processed ${inserted} new and ${updated} updated professional formations`
         };
     }
 }

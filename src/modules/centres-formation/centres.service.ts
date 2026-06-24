@@ -31,26 +31,30 @@ export interface CentreFormationRecord {
       nom: string;
     }>;
   }>;
+  filieres?: Array<any>;
 }
 
 export class CentresService {
-  constructor(private supabase: SupabaseClient) {}
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
 
   /**
    * Create a new centre de formation (and profile record)
    */
-  async createCentre(payload: Partial<CentreFormationRecord> & { telephone?: string }): Promise<CentreFormationRecord> {
+  async createCentre(payload: any): Promise<CentreFormationRecord> {
     const profileId = randomUUID();
     const centreId = randomUUID();
 
-    // Insert profile
     const { error: profileError } = await this.supabase
       .from('profiles')
       .insert({
         id: profileId,
         nom: payload.nom ?? null,
         email: payload.email ?? null,
-        telephone: (payload as any).telephone ?? null,
+        telephone: payload.telephone ?? null,
         profile_type: 'centre_formation',
         created_at: new Date().toISOString(),
       });
@@ -65,19 +69,19 @@ export class CentresService {
         id: centreId,
         profile_id: profileId,
         nom: payload.nom ?? null,
-        nom_representant: (payload as any).nom_representant ?? null,
+        nom_representant: payload.nom_representant ?? null,
         description: payload.description ?? null,
         email: payload.email ?? null,
         contacts: payload.contacts ?? null,
-        ville: (payload as any).ville ?? null,
-        statut: (payload.statut as any) ?? 'PENDING',
+        ville: payload.ville ?? null,
+        statut: payload.statut ?? 'PENDING',
         logo_url: payload.logo_url ?? null,
         couverture_logo_url: payload.couverture_logo_url ?? null,
         lien_site: payload.lien_site ?? null,
-        primary_color: (payload as any).primary_color ?? null,
+        primary_color: payload.primary_color ?? null,
         video_url: payload.video_url ?? null,
-        sigle: (payload as any).sigle ?? null,
-        annee_fondation: (payload as any).annee_fondation ?? null,
+        sigle: payload.sigle ?? null,
+        annee_fondation: payload.annee_fondation ?? null,
         date_creation: new Date().toISOString(),
       })
       .select('*')
@@ -129,6 +133,7 @@ export class CentresService {
    */
   private processCentreWithDomaines(centre: any): CentreFormationRecord {
     const domaineMap = new Map<string, { nom: string; filieres: Array<{ id: string; nom: string }> }>();
+    const centreFilieres: Array<any> = [];
 
     (centre.centre_formation_filieres || []).forEach((item: any) => {
       const filiere = item.filieres_centre;
@@ -146,9 +151,28 @@ export class CentresService {
           nom: filiere.nom
         });
       }
+
+      centreFilieres.push({
+        id: item.id,
+        filiere_id: item.filiere_id || null,
+        nom_formation: item.nom_formation || (filiere ? filiere.nom : null),
+        categorie_domaine: item.categorie_domaine || null,
+        type_certification: item.type_certification || null,
+        duree: item.duree || null,
+        cout_formation: item.cout_formation || null,
+        lieu: item.lieu || null,
+        mode_formation: item.mode_formation || null,
+        langue: item.langue || 'Français',
+        description: item.description || null,
+        prerequis: item.prerequis || null,
+        stage_alternance: item.stage_alternance,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      });
     });
 
     centre.domaines = Array.from(domaineMap.values());
+    centre.filieres = centreFilieres;
     // Remove the nested data to clean up the response
     delete centre.centre_formation_filieres;
     return centre as CentreFormationRecord;
@@ -411,11 +435,47 @@ export class CentresService {
         continue;
       }
 
+      // Determine filiere_id from payload or category/domain name
+      let filiere_id: string | null = null;
+      if (formation.filiere_id) {
+        filiere_id = String(formation.filiere_id).trim() || null;
+      }
+
+      const normalizedCategory = String(formation.categorie_domaine || '').trim();
+      if (!filiere_id && normalizedCategory) {
+        const { data: filiereMatch, error: filiereMatchErr } = await this.supabase
+          .from('filieres_centre')
+          .select('id')
+          .ilike('nom', normalizedCategory)
+          .limit(1);
+
+        if (filiereMatchErr) {
+          console.error('Error looking up filiere by categorie_domaine:', filiereMatchErr);
+        } else if (Array.isArray(filiereMatch) && filiereMatch.length > 0) {
+          filiere_id = filiereMatch[0].id;
+        }
+      }
+
+      if (!filiere_id && normalizedCategory) {
+        const { data: insertedFiliere, error: insertFiliereErr } = await this.supabase
+          .from('filieres_centre')
+          .insert({ id: randomUUID(), nom: normalizedCategory })
+          .select('id')
+          .single();
+
+        if (insertFiliereErr) {
+          console.error('Error creating new filiere_centre:', insertFiliereErr);
+        } else {
+          filiere_id = insertedFiliere?.id || null;
+        }
+      }
+
       // Normaliser les données
       const normalizedFormation = {
         centre_formation_id: centreId,
+        filiere_id: filiere_id || null,
         nom_formation: String(formation.nom_formation || '').trim(),
-        categorie_domaine: String(formation.categorie_domaine || '').trim() || null,
+        categorie_domaine: normalizedCategory || null,
         type_certification: String(formation.type_certification || '').trim() || null,
         duree: String(formation.duree || '').trim() || null,
         cout_formation: String(formation.cout_formation || '').trim() || null,
