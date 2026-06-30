@@ -188,6 +188,12 @@ app.get('/reset-password', async (_request, reply) => {
 app.get('/reset-password.html', async (_request, reply) => {
     reply.type('text/html; charset=utf-8').send(resetPasswordPageHtml);
 });
+app.get('/auth/reset-password', async (_request, reply) => {
+    reply.type('text/html; charset=utf-8').send(resetPasswordPageHtml);
+});
+app.get('/auth/reset-password.html', async (_request, reply) => {
+    reply.type('text/html; charset=utf-8').send(resetPasswordPageHtml);
+});
 // Plugins: supabase must be registered before other routes (depends on it)
 // Lightweight CORS handling for Fastify v4 (avoid upgrading Fastify/plugin mismatch)
 app.addHook('onRequest', (request, reply, done) => {

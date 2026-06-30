@@ -437,11 +437,55 @@ export class CentresService {
 
       // Determine filiere_id from payload or category/domain name
       let filiere_id: string | null = null;
-      if (formation.filiere_id) {
-        filiere_id = String(formation.filiere_id).trim() || null;
+      const candidateFiliereId = String(formation.filiere_id || '').trim();
+      if (candidateFiliereId) {
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidPattern.test(candidateFiliereId)) {
+          filiere_id = candidateFiliereId;
+        } else {
+          const normalizedSlug = candidateFiliereId.toLowerCase();
+          const { data: slugMatch, error: slugMatchErr } = await this.supabase
+            .from('filieres_centre')
+            .select('id')
+            .eq('nom_normalise', normalizedSlug)
+            .limit(1);
+
+          if (slugMatchErr) {
+            console.error('Error looking up filiere by slug:', slugMatchErr);
+          } else if (Array.isArray(slugMatch) && slugMatch.length > 0) {
+            filiere_id = slugMatch[0].id;
+          } else {
+            const { data: nameMatch, error: nameMatchErr } = await this.supabase
+              .from('filieres_centre')
+              .select('id')
+              .ilike('nom', candidateFiliereId)
+              .limit(1);
+
+            if (nameMatchErr) {
+              console.error('Error looking up filiere by name:', nameMatchErr);
+            } else if (Array.isArray(nameMatch) && nameMatch.length > 0) {
+              filiere_id = nameMatch[0].id;
+            }
+          }
+        }
       }
 
       const normalizedCategory = String(formation.categorie_domaine || '').trim();
+      if (!filiere_id && normalizedCategory) {
+        const categorySlug = normalizedCategory.toLowerCase().replace(/\s+/g, '-');
+        const { data: categoryMatch, error: categoryMatchErr } = await this.supabase
+          .from('filieres_centre')
+          .select('id')
+          .eq('nom_normalise', categorySlug)
+          .limit(1);
+
+        if (categoryMatchErr) {
+          console.error('Error looking up filiere by categorie_domaine slug:', categoryMatchErr);
+        } else if (Array.isArray(categoryMatch) && categoryMatch.length > 0) {
+          filiere_id = categoryMatch[0].id;
+        }
+      }
+
       if (!filiere_id && normalizedCategory) {
         const { data: filiereMatch, error: filiereMatchErr } = await this.supabase
           .from('filieres_centre')
@@ -450,7 +494,7 @@ export class CentresService {
           .limit(1);
 
         if (filiereMatchErr) {
-          console.error('Error looking up filiere by categorie_domaine:', filiereMatchErr);
+          console.error('Error looking up filiere by categorie_domaine name:', filiereMatchErr);
         } else if (Array.isArray(filiereMatch) && filiereMatch.length > 0) {
           filiere_id = filiereMatch[0].id;
         }

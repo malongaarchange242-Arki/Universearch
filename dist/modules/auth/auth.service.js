@@ -554,7 +554,7 @@ const forgotPassword = async (supabase, email) => {
     }
     // Utiliser la fonction Supabase native pour envoyer un lien de réinitialisation
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getPublicAppUrl()}/reset-password`,
+        redirectTo: `${getPublicAppUrl()}/auth/reset-password`,
     });
     if (error) {
         console.error('Reset password email error:', error.message);
